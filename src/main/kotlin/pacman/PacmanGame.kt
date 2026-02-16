@@ -74,6 +74,8 @@ class PacmanGame : PulseEngineGame() {
     private var lightingTargetMainEnabled = false
     private var wallBevelDebug = false
     private var sceneBrightness = SceneBrightness.HIGH
+    private var serviceMenuOpen = false
+    private var serviceMenuCursorIndex = 1
     private var lightingSystem: DirectLightingSystem? = null
     private var boardBacklight: Lamp? = null
     private var pacAuraLight: Lamp? = null
@@ -83,6 +85,8 @@ class PacmanGame : PulseEngineGame() {
     private val powerPelletAuraLights = mutableMapOf<Pair<Int, Int>, Lamp>()
     private val eatenGhostConeLights = mutableMapOf<GhostType, LightPair>()
     private val powerPelletConeLights = mutableMapOf<Pair<Int, Int>, LightPair>()
+
+    private val menuItems: List<MenuItem> by lazy { buildMenuItems() }
 
     private var dotsEatenThisLevel = 0
     private var fruitSpawn70Done = false
@@ -139,87 +143,30 @@ class PacmanGame : PulseEngineGame() {
     }
 
     override fun onUpdate() {
+        if (engine.input.wasClicked(Key.S)) {
+            serviceMenuOpen = !serviceMenuOpen
+            if (serviceMenuOpen) {
+                if (menuItems[serviceMenuCursorIndex].type is MenuItemType.Header) {
+                    serviceMenuCursorIndex = 1
+                }
+            }
+        }
+
+        if (serviceMenuOpen) {
+            handleServiceMenuInput()
+            return
+        }
+
         if (engine.input.wasClicked(Key.ENTER) && phase in setOf(GamePhase.BOOT, GamePhase.ATTRACT, GamePhase.ATTRACT_DEMO, GamePhase.TITLE_POINTS, GamePhase.HI_SCORE)) {
             startNewGameFromStartup()
             return
         }
 
         if (engine.input.wasClicked(Key.UP) || engine.input.wasClicked(Key.W)) pacNextDir = Direction.UP
-        if (engine.input.wasClicked(Key.DOWN) || engine.input.wasClicked(Key.S)) pacNextDir = Direction.DOWN
+        if (engine.input.wasClicked(Key.DOWN)) pacNextDir = Direction.DOWN
         if (engine.input.wasClicked(Key.LEFT) || engine.input.wasClicked(Key.A)) pacNextDir = Direction.LEFT
         if (engine.input.wasClicked(Key.RIGHT) || engine.input.wasClicked(Key.D)) pacNextDir = Direction.RIGHT
         if (engine.input.wasClicked(Key.R)) resetGame()
-        if (engine.input.wasClicked(Key.L)) {
-            if (isNonGameplayLightsOffPhase()) {
-                setLightingEnabledState(false)
-            } else {
-                setLightingEnabledState(!lightingEnabled)
-            }
-        }
-        if (engine.input.wasClicked(Key.EQUAL) || engine.input.wasClicked(Key.KP_ADD)) {
-            crtStrength = (crtStrength + 0.1f).coerceIn(0f, 2f)
-            updateCRTEffectSettings()
-        }
-        if (engine.input.wasClicked(Key.MINUS) || engine.input.wasClicked(Key.KP_SUBTRACT)) {
-            crtStrength = (crtStrength - 0.1f).coerceIn(0f, 2f)
-            updateCRTEffectSettings()
-        }
-        if (engine.input.wasClicked(Key.C)) {
-            crtEnabled = !crtEnabled
-            if (crtEnabled) {
-                ensureCRTEffects()
-                updateCRTEffectSettings()
-            } else {
-                deleteCRTEffects()
-            }
-        }
-        if (engine.input.wasClicked(Key.M)) {
-            bloomEnabled = !bloomEnabled
-            if (bloomEnabled) {
-                ensureBloomEffects()
-                updateBloomEffectSettings()
-            } else {
-                deleteBloomEffects()
-            }
-        }
-        if (engine.input.wasClicked(Key.PERIOD)) {
-            bloomStrength = (bloomStrength + 0.1f).coerceIn(0f, 2f)
-            updateBloomEffectSettings()
-        }
-        if (engine.input.wasClicked(Key.COMMA)) {
-            bloomStrength = (bloomStrength - 0.1f).coerceIn(0f, 2f)
-            updateBloomEffectSettings()
-        }
-        if (engine.input.wasClicked(Key.B)) wallBevelDebug = !wallBevelDebug
-        if (engine.input.wasClicked(Key.H)) entityHaloEnabled = !entityHaloEnabled
-        if (engine.input.wasClicked(Key.V)) boardBacklightEnabled = !boardBacklightEnabled
-        if (engine.input.wasClicked(Key.J)) auraLightsEnabled = !auraLightsEnabled
-        if (engine.input.wasClicked(Key.X)) wallBevelEnabled = !wallBevelEnabled
-        if (engine.input.wasClicked(Key.T)) {
-            scanlineEnabled = !scanlineEnabled
-            if (scanlineEnabled) {
-                ensureScanlineEffects()
-                updateScanlineEffectSettings()
-            } else {
-                deleteScanlineEffects()
-            }
-        }
-        if (engine.input.wasClicked(Key.U)) {
-            scanlineStrength = (scanlineStrength + 0.1f).coerceIn(0f, 2f)
-            updateScanlineEffectSettings()
-        }
-        if (engine.input.wasClicked(Key.Y)) {
-            scanlineStrength = (scanlineStrength - 0.1f).coerceIn(0f, 2f)
-            updateScanlineEffectSettings()
-        }
-        if (engine.input.wasClicked(Key.O)) wallOutlineEnabled = !wallOutlineEnabled
-        if (engine.input.wasClicked(Key.I)) wallThinOutlineMode = !wallThinOutlineMode
-        if (engine.input.wasClicked(Key.G)) geometryTestOverlayEnabled = !geometryTestOverlayEnabled
-        if (engine.input.wasClicked(Key.K)) {
-            lightingTargetMainEnabled = !lightingTargetMainEnabled
-            lightingSystem?.targetSurfaces = if (lightingTargetMainEnabled) "main" else ""
-        }
-        if (engine.input.wasClicked(Key.N)) cycleSceneBrightness()
         if (engine.input.wasClicked(Key.ENTER) && phase == GamePhase.GAME_OVER) {
             enterStartScreen()
         }
@@ -504,6 +451,217 @@ class PacmanGame : PulseEngineGame() {
         SceneBrightness.HIGH -> Color(0.24f, 0.24f, 0.3f, 0.98f)
     }
 
+    private fun buildMenuItems(): List<MenuItem> = listOf(
+        MenuItem(
+            label = "POST-PROCESSING",
+            type = MenuItemType.Header,
+        ),
+        MenuItem(
+            label = "CRT",
+            type = MenuItemType.Toggle,
+            getter = { crtEnabled },
+            setter = { value ->
+                crtEnabled = value
+                if (crtEnabled) {
+                    ensureCRTEffects()
+                    updateCRTEffectSettings()
+                } else {
+                    deleteCRTEffects()
+                }
+            },
+        ),
+        MenuItem(
+            label = "CRT Strength",
+            type = MenuItemType.Slider,
+            getter = { crtStrength },
+            sliderSetter = { delta ->
+                crtStrength = (crtStrength + delta).coerceIn(0f, 2f)
+                updateCRTEffectSettings()
+            },
+        ),
+        MenuItem(
+            label = "Scanline",
+            type = MenuItemType.Toggle,
+            getter = { scanlineEnabled },
+            setter = { value ->
+                scanlineEnabled = value
+                if (scanlineEnabled) {
+                    ensureScanlineEffects()
+                    updateScanlineEffectSettings()
+                } else {
+                    deleteScanlineEffects()
+                }
+            },
+        ),
+        MenuItem(
+            label = "Scanline Strength",
+            type = MenuItemType.Slider,
+            getter = { scanlineStrength },
+            sliderSetter = { delta ->
+                scanlineStrength = (scanlineStrength + delta).coerceIn(0f, 2f)
+                updateScanlineEffectSettings()
+            },
+        ),
+        MenuItem(
+            label = "Bloom",
+            type = MenuItemType.Toggle,
+            getter = { bloomEnabled },
+            setter = { value ->
+                bloomEnabled = value
+                if (bloomEnabled) {
+                    ensureBloomEffects()
+                    updateBloomEffectSettings()
+                } else {
+                    deleteBloomEffects()
+                }
+            },
+        ),
+        MenuItem(
+            label = "Bloom Strength",
+            type = MenuItemType.Slider,
+            getter = { bloomStrength },
+            sliderSetter = { delta ->
+                bloomStrength = (bloomStrength + delta).coerceIn(0f, 2f)
+                updateBloomEffectSettings()
+            },
+        ),
+        MenuItem(
+            label = "LIGHTING",
+            type = MenuItemType.Header,
+        ),
+        MenuItem(
+            label = "Lighting",
+            type = MenuItemType.Toggle,
+            getter = { lightingEnabled },
+            setter = { value ->
+                if (value || !isNonGameplayLightsOffPhase()) {
+                    lightingEnabled = value
+                    setLightingEnabledState(lightingEnabled)
+                }
+            },
+        ),
+        MenuItem(
+            label = "Entity Halos",
+            type = MenuItemType.Toggle,
+            getter = { entityHaloEnabled },
+            setter = { value -> entityHaloEnabled = value },
+        ),
+        MenuItem(
+            label = "Board Backlight",
+            type = MenuItemType.Toggle,
+            getter = { boardBacklightEnabled },
+            setter = { value -> boardBacklightEnabled = value },
+        ),
+        MenuItem(
+            label = "Aura Lights",
+            type = MenuItemType.Toggle,
+            getter = { auraLightsEnabled },
+            setter = { value -> auraLightsEnabled = value },
+        ),
+        MenuItem(
+            label = "Brightness",
+            type = MenuItemType.Cycle,
+            getter = { sceneBrightness },
+            cycleSetter = { cycleSceneBrightness() },
+        ),
+        MenuItem(
+            label = "WALLS",
+            type = MenuItemType.Header,
+        ),
+        MenuItem(
+            label = "Wall Bevel",
+            type = MenuItemType.Toggle,
+            getter = { wallBevelEnabled },
+            setter = { value -> wallBevelEnabled = value },
+        ),
+        MenuItem(
+            label = "Wall Bevel Debug",
+            type = MenuItemType.Toggle,
+            getter = { wallBevelDebug },
+            setter = { value -> wallBevelDebug = value },
+        ),
+        MenuItem(
+            label = "Wall Outline",
+            type = MenuItemType.Toggle,
+            getter = { wallOutlineEnabled },
+            setter = { value -> wallOutlineEnabled = value },
+        ),
+        MenuItem(
+            label = "Wall Thin Outline",
+            type = MenuItemType.Toggle,
+            getter = { wallThinOutlineMode },
+            setter = { value -> wallThinOutlineMode = value },
+        ),
+        MenuItem(
+            label = "DEBUG",
+            type = MenuItemType.Header,
+        ),
+        MenuItem(
+            label = "Geometry Test",
+            type = MenuItemType.Toggle,
+            getter = { geometryTestOverlayEnabled },
+            setter = { value -> geometryTestOverlayEnabled = value },
+        ),
+        MenuItem(
+            label = "Light Target Main",
+            type = MenuItemType.Toggle,
+            getter = { lightingTargetMainEnabled },
+            setter = { value ->
+                lightingTargetMainEnabled = value
+                lightingSystem?.targetSurfaces = if (lightingTargetMainEnabled) "main" else ""
+            },
+        ),
+    )
+
+    private fun handleServiceMenuInput() {
+        if (engine.input.wasClicked(Key.UP)) {
+            var nextIndex = serviceMenuCursorIndex - 1
+            if (nextIndex < 0) nextIndex = menuItems.size - 1
+            while (menuItems[nextIndex].type == MenuItemType.Header) {
+                nextIndex--
+                if (nextIndex < 0) nextIndex = menuItems.size - 1
+            }
+            serviceMenuCursorIndex = nextIndex
+        }
+
+        if (engine.input.wasClicked(Key.DOWN)) {
+            var nextIndex = serviceMenuCursorIndex + 1
+            if (nextIndex >= menuItems.size) nextIndex = 0
+            while (menuItems[nextIndex].type == MenuItemType.Header) {
+                nextIndex++
+                if (nextIndex >= menuItems.size) nextIndex = 0
+            }
+            serviceMenuCursorIndex = nextIndex
+        }
+
+        val currentItem = menuItems[serviceMenuCursorIndex]
+
+        if (engine.input.wasClicked(Key.SPACE)) {
+            when (currentItem.type) {
+                MenuItemType.Toggle -> {
+                    val currentValue = currentItem.getter?.invoke() as? Boolean ?: false
+                    currentItem.setter?.invoke(!currentValue)
+                }
+                MenuItemType.Cycle -> {
+                    currentItem.cycleSetter?.invoke()
+                }
+                else -> {}
+            }
+        }
+
+        if (engine.input.wasClicked(Key.LEFT)) {
+            if (currentItem.type == MenuItemType.Slider) {
+                currentItem.sliderSetter?.invoke(-0.1f)
+            }
+        }
+
+        if (engine.input.wasClicked(Key.RIGHT)) {
+            if (currentItem.type == MenuItemType.Slider) {
+                currentItem.sliderSetter?.invoke(0.1f)
+            }
+        }
+    }
+
     private fun createMazeOccluders() {
         for (row in 0 until Maze.ROWS) {
             for (col in 0 until Maze.COLS) {
@@ -524,6 +682,7 @@ class PacmanGame : PulseEngineGame() {
     override fun onFixedUpdate() {
         val dt = engine.data.fixedDeltaTime
         uiPulseTime += dt
+        if (serviceMenuOpen) return
 
         when (phase) {
             GamePhase.BOOT -> {
@@ -672,6 +831,9 @@ class PacmanGame : PulseEngineGame() {
             renderStartupScreen(s)
             renderCrtDebugOverlay(debugSurface)
         }
+        if (serviceMenuOpen) {
+            renderServiceMenu(uiSurface)
+        }
     }
 
     private fun isGameplayVisualPhase(): Boolean = phase in setOf(
@@ -697,6 +859,7 @@ class PacmanGame : PulseEngineGame() {
     }
 
     private fun resetGame() {
+        serviceMenuOpen = false
         Maze.reset()
         score = 0
         lives = 3
@@ -716,6 +879,7 @@ class PacmanGame : PulseEngineGame() {
     }
 
     private fun startNewGameFromStartup() {
+        serviceMenuOpen = false
         Maze.reset()
         score = 0
         lives = 3
@@ -746,6 +910,7 @@ class PacmanGame : PulseEngineGame() {
     }
 
     private fun enterStartScreen() {
+        serviceMenuOpen = false
         phase = GamePhase.TITLE_POINTS
         titlePointsTimer = startScreenDelay
         setLightingEnabledState(false)
@@ -1963,30 +2128,88 @@ class PacmanGame : PulseEngineGame() {
 
         s.setDrawColor(0.55f, 0.55f, 0.55f, 1f)
         s.drawText(
-            "WASD/Arrows: Move  R: Reset  L: Lights  C: CRT  +/-: CRT Amount  T: Scanline  U/Y: Scanline Amount  M: Bloom  ,/.: Bloom Amount  H: Halos  J: Aura  V: Backlight  X: Bevel  O: Outline  I: ThinNoJoin  G: Geometry Test  K: LightTarget  B: Bevel Boost  N: Brightness",
+            "S: Service Menu",
             engine.window.width / 2f,
             engine.window.height - 15f,
             fontSize = 14f,
             xOrigin = 0.5f,
             yOrigin = 0.5f,
         )
+    }
 
-        s.setDrawColor(0.75f, 0.82f, 0.9f, 0.9f)
-        s.drawText("BRIGHTNESS: ${sceneBrightness.name}", 20f, engine.window.height - 34f, fontSize = 14f)
-        s.drawText("CRT: ${if (crtEnabled) "ON" else "OFF"} ${"%.1f".format(crtStrength)}x", 20f, engine.window.height - 52f, fontSize = 14f)
-        s.drawText("SCANLINE: ${if (scanlineEnabled) "ON" else "OFF"} ${"%.1f".format(scanlineStrength)}x", 20f, engine.window.height - 70f, fontSize = 14f)
-        s.drawText("BLOOM: ${if (bloomEnabled) "ON" else "OFF"} ${"%.1f".format(bloomStrength)}x", 20f, engine.window.height - 88f, fontSize = 14f)
-        s.drawText(
-            "FX HALO:${if (entityHaloEnabled) "ON" else "OFF"} AURA:${if (auraLightsEnabled) "ON" else "OFF"} BACK:${if (boardBacklightEnabled) "ON" else "OFF"} BEVEL:${if (wallBevelEnabled) "ON" else "OFF"} OUT:${if (wallOutlineEnabled) "ON" else "OFF"} THIN:${if (wallThinOutlineMode) "ON" else "OFF"} GEO:${if (geometryTestOverlayEnabled) "ON" else "OFF"} LTGT:${if (lightingTargetMainEnabled) "MAIN" else "OFF"}",
-            20f,
-            engine.window.height - 124f,
-            fontSize = 14f,
-        )
+    private fun renderServiceMenu(s: Surface) {
+        s.setDrawColor(0f, 0f, 0f, 0.85f)
+        s.drawQuad(0f, 0f, engine.window.width.toFloat(), engine.window.height.toFloat())
 
-        if (wallBevelDebug) {
-            s.setDrawColor(0.86f, 0.94f, 1f, 0.95f)
-            s.drawText("WALL BEVEL BOOST", 20f, engine.window.height - 15f, fontSize = 14f)
+        val centerX = engine.window.width / 2f
+        val titleY = 60f
+
+        s.setDrawColor(0f, 1f, 1f, 1f)
+        s.drawText("SERVICE MENU", centerX, titleY, fontSize = 48f, xOrigin = 0.5f, yOrigin = 0.5f)
+
+        val startY = 140f
+        val lineHeight = 28f
+        var yOffset = startY
+
+        for (i in menuItems.indices) {
+            val item = menuItems[i]
+            val isSelected = i == serviceMenuCursorIndex
+
+            when (item.type) {
+                MenuItemType.Header -> {
+                    s.setDrawColor(1f, 0.8f, 0f, 1f)
+                    s.drawText(item.label, centerX - 200f, yOffset, fontSize = 24f)
+                }
+                MenuItemType.Toggle -> {
+                    val value = item.getter?.invoke() as? Boolean ?: false
+                    val valueText = if (value) "ON" else "OFF"
+                    val prefix = if (isSelected) "> " else "  "
+
+                    s.setDrawColor(0.9f, 0.9f, 0.9f, 1f)
+                    s.drawText("$prefix${item.label}", centerX - 200f, yOffset, fontSize = 20f)
+
+                    s.setDrawColor(if (value) 0f else 0.5f, if (value) 1f else 0.5f, 0f, 1f)
+                    s.drawText(valueText, centerX + 200f, yOffset, fontSize = 20f)
+                }
+                MenuItemType.Slider -> {
+                    val value = item.getter?.invoke() as? Float ?: 0f
+                    val valueText = "%.1f".format(value)
+                    val prefix = if (isSelected) "> " else "  "
+
+                    s.setDrawColor(0.9f, 0.9f, 0.9f, 1f)
+                    s.drawText("$prefix${item.label}", centerX - 200f, yOffset, fontSize = 20f)
+
+                    s.setDrawColor(0f, 0.8f, 1f, 1f)
+                    s.drawText(valueText, centerX + 200f, yOffset, fontSize = 20f)
+                }
+                MenuItemType.Cycle -> {
+                    val value = item.getter?.invoke()
+                    val valueText = when (value) {
+                        is SceneBrightness -> value.name
+                        else -> value.toString()
+                    }
+                    val prefix = if (isSelected) "> " else "  "
+
+                    s.setDrawColor(0.9f, 0.9f, 0.9f, 1f)
+                    s.drawText("$prefix${item.label}", centerX - 200f, yOffset, fontSize = 20f)
+
+                    s.setDrawColor(1f, 0.7f, 0f, 1f)
+                    s.drawText(valueText, centerX + 200f, yOffset, fontSize = 20f)
+                }
+            }
+
+            yOffset += lineHeight
         }
+
+        s.setDrawColor(0.7f, 0.7f, 0.7f, 1f)
+        s.drawText(
+            "UP/DOWN: Navigate   SPACE: Toggle   LEFT/RIGHT: Adjust   S: Close",
+            centerX,
+            engine.window.height - 40f,
+            fontSize = 18f,
+            xOrigin = 0.5f,
+            yOrigin = 0.5f,
+        )
     }
 
     private fun renderStartupScreen(s: Surface) {
@@ -2335,6 +2558,22 @@ class PacmanGame : PulseEngineGame() {
             Direction.NONE -> {}
         }
     }
+
+    sealed interface MenuItemType {
+        data object Toggle : MenuItemType
+        data object Slider : MenuItemType
+        data object Cycle : MenuItemType
+        data object Header : MenuItemType
+    }
+
+    data class MenuItem(
+        val label: String,
+        val type: MenuItemType,
+        val getter: (() -> Any)? = null,
+        val setter: ((Boolean) -> Unit)? = null,
+        val sliderSetter: ((Float) -> Unit)? = null,
+        val cycleSetter: (() -> Unit)? = null,
+    )
 
     companion object {
         private const val CRT_EFFECT_NAME = "pacman_crt"
