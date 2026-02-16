@@ -76,6 +76,7 @@ class PacmanGame : PulseEngineGame() {
     private var sceneBrightness = SceneBrightness.HIGH
     private var serviceMenuOpen = false
     private var serviceMenuCursorIndex = 1
+    private var bootTestHold = false
     private var lightingSystem: DirectLightingSystem? = null
     private var boardBacklight: Lamp? = null
     private var pacAuraLight: Lamp? = null
@@ -167,6 +168,16 @@ class PacmanGame : PulseEngineGame() {
         if (engine.input.wasClicked(Key.LEFT) || engine.input.wasClicked(Key.A)) pacNextDir = Direction.LEFT
         if (engine.input.wasClicked(Key.RIGHT) || engine.input.wasClicked(Key.D)) pacNextDir = Direction.RIGHT
         if (engine.input.wasClicked(Key.R)) resetGame()
+        if (engine.input.wasClicked(Key.T)) {
+            if (bootTestHold) {
+                bootTestHold = false
+            } else {
+                phase = GamePhase.BOOT
+                bootTimer = bootDuration - 2.9f
+                bootTestHold = true
+                setLightingEnabledState(false)
+            }
+        }
         if (engine.input.wasClicked(Key.ENTER) && phase == GamePhase.GAME_OVER) {
             enterStartScreen()
         }
@@ -686,10 +697,12 @@ class PacmanGame : PulseEngineGame() {
 
         when (phase) {
             GamePhase.BOOT -> {
-                bootTimer -= dt
-                if (bootTimer <= 0f) {
-                    phase = GamePhase.ATTRACT
-                    attractTimer = 6f
+                if (!bootTestHold) {
+                    bootTimer -= dt
+                    if (bootTimer <= 0f) {
+                        phase = GamePhase.ATTRACT
+                        attractTimer = 6f
+                    }
                 }
             }
 
@@ -860,6 +873,7 @@ class PacmanGame : PulseEngineGame() {
 
     private fun resetGame() {
         serviceMenuOpen = false
+        bootTestHold = false
         Maze.reset()
         score = 0
         lives = 3
@@ -880,6 +894,7 @@ class PacmanGame : PulseEngineGame() {
 
     private fun startNewGameFromStartup() {
         serviceMenuOpen = false
+        bootTestHold = false
         Maze.reset()
         score = 0
         lives = 3
