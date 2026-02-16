@@ -1958,11 +1958,11 @@ class PacmanGame : PulseEngineGame() {
                     it.first.x = x
                     it.first.y = y
                     it.first.rotation = base
-                    it.first.intensity = if (auraLightsEnabled) 0.55f + pulse * 0.3f else 0f
+                    it.first.intensity = if (auraLightsEnabled) 0.5f + pulse * 0.3f else 0f
                      it.second.x = x
                      it.second.y = y
-                     it.second.rotation = (base + 180f) % 360f
-                     it.second.intensity = if (auraLightsEnabled) 0.55f + pulse * 0.3f else 0f
+                      it.second.rotation = (base + 180f) % 360f
+                      it.second.intensity = if (auraLightsEnabled) 0.5f + pulse * 0.3f else 0f
                 }
             }
         }
@@ -1990,11 +1990,11 @@ class PacmanGame : PulseEngineGame() {
                         it.first.x = light.x
                         it.first.y = light.y
                         it.first.rotation = spin
-                        it.first.intensity = if (auraLightsEnabled) 0.8f + pulse * 0.35f else 0f
+                        it.first.intensity = if (auraLightsEnabled) 0.5f + pulse * 0.3f else 0f
                          it.second.x = light.x
                          it.second.y = light.y
-                         it.second.rotation = (spin + 180f) % 360f
-                         it.second.intensity = if (auraLightsEnabled) 0.8f + pulse * 0.35f else 0f
+                          it.second.rotation = (spin + 180f) % 360f
+                          it.second.intensity = if (auraLightsEnabled) 0.5f + pulse * 0.3f else 0f
                     }
                 }
 
@@ -2023,11 +2023,11 @@ class PacmanGame : PulseEngineGame() {
                     it.first.x = x
                     it.first.y = y
                     it.first.rotation = base
-                    it.first.intensity = if (auraLightsEnabled) 0.45f + pulse * 0.28f else 0f
+                    it.first.intensity = if (auraLightsEnabled) 0.5f + pulse * 0.3f else 0f
                      it.second.x = x
                      it.second.y = y
-                     it.second.rotation = (base + 180f) % 360f
-                     it.second.intensity = if (auraLightsEnabled) 0.45f + pulse * 0.28f else 0f
+                      it.second.rotation = (base + 180f) % 360f
+                      it.second.intensity = if (auraLightsEnabled) 0.5f + pulse * 0.3f else 0f
                 }
             } else {
                 light.intensity = 0f
