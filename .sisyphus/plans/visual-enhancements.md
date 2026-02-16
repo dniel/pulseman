@@ -452,7 +452,7 @@ Task 11: Dynamic Bloom During Frightened
 
 ---
 
-- [ ] 3. Enhanced Ghost Lights
+- [x] 3. Enhanced Ghost Lights
 
   **What to do**:
   1. In `syncSceneLights()` where ghost aura lights are updated (line ~1950-1996): wrap the normal-mode intensity/radius with the `enhancedGhostLightsEnabled` check:

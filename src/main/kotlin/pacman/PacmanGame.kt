@@ -2081,7 +2081,15 @@ class PacmanGame : PulseEngineGame() {
 
                 else -> {
                     light.lightColor = ghostAuraColor(ghost.type)
-                    light.intensity = if (auraLightsEnabled) 0.38f + pulse * 0.24f else 0f
+                    if (enhancedGhostLightsEnabled) {
+                        light.radius = 220f
+                        light.size = 32f
+                        light.intensity = if (auraLightsEnabled) 0.85f + pulse * 0.15f else 0f
+                    } else {
+                        light.radius = 170f
+                        light.size = 26f
+                        light.intensity = if (auraLightsEnabled) 0.38f + pulse * 0.24f else 0f
+                    }
                     conePair?.let {
                         it.first.intensity = 0f
                         it.second.intensity = 0f
