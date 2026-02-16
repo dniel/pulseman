@@ -32,7 +32,6 @@ class PacmanGame : PulseEngineGame() {
     private var mouthOpening = true
 
      private val ghosts = mutableListOf<GhostState>()
-     private val particles = mutableListOf<Particle>()
 
      private var lives = 3
      private var level = 1
@@ -51,9 +50,8 @@ class PacmanGame : PulseEngineGame() {
     private var frightenedTimer = 0f
     private var ghostModeTimer = 0f
     private var ghostModeIndex = 0
-    private var currentGhostMode = GhostMode.SCATTER
+     private var currentGhostMode = GhostMode.SCATTER
      private var deathAnimTimer = 0f
-     private var dustEmitAccumulator = 0f
      private var uiPulseTime = 0f
     private var lightingEnabled = true
     private var entityHaloEnabled = true
@@ -69,10 +67,8 @@ class PacmanGame : PulseEngineGame() {
      private var frightenedAmbientShiftEnabled = true
      private var enhancedPacAuraEnabled = true
      private var enhancedGhostLightsEnabled = true
-     private var frightenedParticleTrailEnabled = true
-     private var ambientDustEnabled = true
-     private var enhancedGhostExplosionsEnabled = true
-     private var levelWinConfettiEnabled = true
+     
+     private val particleSystem = ParticleSystem()
      private var nativeFogEnabled = false
      private var nativeFogIntensity = 0.5f
      private var fogOfWarEnabled = false
@@ -550,26 +546,26 @@ class PacmanGame : PulseEngineGame() {
          MenuItem(
              label = "Frightened Particle Trail",
              type = MenuItemType.Toggle,
-             getter = { frightenedParticleTrailEnabled },
-             setter = { value -> frightenedParticleTrailEnabled = value },
+             getter = { particleSystem.frightenedParticleTrailEnabled },
+             setter = { value -> particleSystem.frightenedParticleTrailEnabled = value },
          ),
          MenuItem(
              label = "Ambient Dust",
              type = MenuItemType.Toggle,
-             getter = { ambientDustEnabled },
-             setter = { value -> ambientDustEnabled = value },
+             getter = { particleSystem.ambientDustEnabled },
+             setter = { value -> particleSystem.ambientDustEnabled = value },
          ),
          MenuItem(
              label = "Ghost Color Explosions",
              type = MenuItemType.Toggle,
-             getter = { enhancedGhostExplosionsEnabled },
-             setter = { value -> enhancedGhostExplosionsEnabled = value },
+             getter = { particleSystem.enhancedGhostExplosionsEnabled },
+             setter = { value -> particleSystem.enhancedGhostExplosionsEnabled = value },
          ),
          MenuItem(
              label = "Level Win Confetti",
              type = MenuItemType.Toggle,
-             getter = { levelWinConfettiEnabled },
-             setter = { value -> levelWinConfettiEnabled = value },
+             getter = { particleSystem.levelWinConfettiEnabled },
+             setter = { value -> particleSystem.levelWinConfettiEnabled = value },
          ),
          MenuItem(
              label = "Fog of War",
@@ -683,13 +679,12 @@ class PacmanGame : PulseEngineGame() {
                 }
             }
 
-             GamePhase.ATTRACT_DEMO -> {
+            GamePhase.ATTRACT_DEMO -> {
                  attractDemoTimer -= dt
-                 updateAttractPacmanControl()
                  updatePacman(dt)
-                 emitPacTrail()
-                 emitFrightenedTrail()
-                 emitAmbientDust(dt)
+                 particleSystem.emitPacTrail(pacPixelX(), pacPixelY(), phase, frightenedTimer)
+                 particleSystem.emitFrightenedTrail(pacPixelX(), pacPixelY(), phase, frightenedTimer)
+                 particleSystem.emitAmbientDust(dt, phase)
                  updateGhosts(dt)
                 updateGhostModes(dt)
                 updateFruit(dt)
@@ -719,9 +714,9 @@ class PacmanGame : PulseEngineGame() {
 
              GamePhase.PLAYING -> {
                  updatePacman(dt)
-                 emitPacTrail()
-                 emitFrightenedTrail()
-                 emitAmbientDust(dt)
+                 particleSystem.emitPacTrail(pacPixelX(), pacPixelY(), phase, frightenedTimer)
+                 particleSystem.emitFrightenedTrail(pacPixelX(), pacPixelY(), phase, frightenedTimer)
+                 particleSystem.emitAmbientDust(dt, phase)
                  updateGhosts(dt)
                 updateGhostModes(dt)
                 updateFruit(dt)
@@ -729,7 +724,7 @@ class PacmanGame : PulseEngineGame() {
                  if (Maze.dotsRemaining() == 0) {
                      phase = GamePhase.WON
                      wonTimer = 1.5f
-                     emitLevelWinConfetti()
+                     particleSystem.emitLevelWinConfetti(pacPixelX(), pacPixelY())
                  }
             }
 
@@ -775,7 +770,7 @@ class PacmanGame : PulseEngineGame() {
              setLightingEnabledState(false)
          }
          scoreManager.update(dt)
-         updateParticles(dt)
+         particleSystem.updateParticles(dt)
         syncSceneLights()
     }
 
@@ -809,7 +804,7 @@ class PacmanGame : PulseEngineGame() {
             renderFruit(s)
             if (phase != GamePhase.DYING) renderGhosts(s)
              renderPacman(s)
-             renderParticles(s)
+             particleSystem.renderParticles(s)
               scoreManager.render(s)
               if (geometryTestOverlayEnabled) renderGeometryTestOverlay(s)
              renderUI(uiSurface)
@@ -851,8 +846,7 @@ class PacmanGame : PulseEngineGame() {
           scoreManager.reset()
           lives = 3
           level = 1
-          particles.clear()
-          dustEmitAccumulator = 0f
+          particleSystem.reset()
           startLevelState(resetDots = true)
         phase = GamePhase.BOOT
         bootTimer = bootDuration
@@ -872,7 +866,7 @@ class PacmanGame : PulseEngineGame() {
          scoreManager.reset()
          lives = 3
          level = 1
-         particles.clear()
+         particleSystem.reset()
          startLevelState(resetDots = true)
          beginReadyPhase()
      }
@@ -888,7 +882,7 @@ class PacmanGame : PulseEngineGame() {
          scoreManager.reset()
          lives = 3
          level = 1
-         particles.clear()
+         particleSystem.reset()
          attractDemoGameOverTimer = 0f
          setLightingEnabledState(true)
          startLevelState(resetDots = true)
@@ -921,8 +915,7 @@ class PacmanGame : PulseEngineGame() {
          fruitSpawn70Done = false
          fruitSpawn170Done = false
          activeFruit = null
-         particles.clear()
-         dustEmitAccumulator = 0f
+         particleSystem.reset()
         ghostReleaseTimers = floatArrayOf(0f, 3f, 6f, 9f).map { max(0f, it - (level - 1) * 0.25f) }.toFloatArray()
         resetPositions()
     }
@@ -1067,7 +1060,7 @@ class PacmanGame : PulseEngineGame() {
                   dotsEatenThisLevel++
                   scoreManager.addScore(10)
                   maybeSpawnFruit()
-                 emitDotParticles(Maze.centerX(col), Maze.centerY(row))
+                 particleSystem.emitDotParticles(Maze.centerX(col), Maze.centerY(row))
                  soundManager.play("pacman_chomp")
             }
 
@@ -1076,7 +1069,7 @@ class PacmanGame : PulseEngineGame() {
                  dotsEatenThisLevel++
                   scoreManager.addScore(50)
                   maybeSpawnFruit()
-                 emitPowerPelletParticles(Maze.centerX(col), Maze.centerY(row))
+                 particleSystem.emitPowerPelletParticles(Maze.centerX(col), Maze.centerY(row))
                  activateFrightened()
                  soundManager.play("pacman_beginning")
             }
@@ -1118,7 +1111,7 @@ class PacmanGame : PulseEngineGame() {
          val fruit = activeFruit ?: return
          if (pacGridX == fruit.col && pacGridY == fruit.row) {
               scoreManager.addScore(fruit.type.score)
-              emitFruitParticles(Maze.centerX(fruit.col), Maze.centerY(fruit.row), fruit.type)
+              particleSystem.emitFruitParticles(Maze.centerX(fruit.col), Maze.centerY(fruit.row), fruit.type)
               scoreManager.addPopup(Maze.centerX(fruit.col), Maze.centerY(fruit.row), fruit.type.score.toString())
               activeFruit = null
               soundManager.play("pacman_eatfruit")
@@ -1310,14 +1303,14 @@ class PacmanGame : PulseEngineGame() {
                          pelletsEatenForGhostScore++
                           val ghostScore = 200 * (1 shl (pelletsEatenForGhostScore - 1).coerceAtMost(3))
                           scoreManager.addScore(ghostScore)
-                          emitGhostEatenParticles(ghostPixelX(ghost), ghostPixelY(ghost), ghost.type)
+                          particleSystem.emitGhostEatenParticles(ghostPixelX(ghost), ghostPixelY(ghost), ghost.type)
                           scoreManager.addPopup(ghostPixelX(ghost), ghostPixelY(ghost) - 8f, ghostScore.toString())
                           soundManager.play("pacman_eatghost")
                      }
 
                      GhostMode.EATEN -> {}
                      else -> {
-                         emitDeathParticles(pacPixelX(), pacPixelY())
+                         particleSystem.emitDeathParticles(pacPixelX(), pacPixelY())
                          soundManager.play("pacman_death")
                         if (phase == GamePhase.ATTRACT_DEMO) {
                             attractDemoGameOverTimer = 1.25f
@@ -1349,200 +1342,6 @@ class PacmanGame : PulseEngineGame() {
             }
         }
     }
-
-      private fun updateParticles(dt: Float) {
-         val it = particles.iterator()
-         while (it.hasNext()) {
-             val p = it.next()
-             p.life -= dt
-             if (p.life <= 0f) {
-                 it.remove()
-                 continue
-             }
-             p.x += p.vx * dt
-             p.y += p.vy * dt
-             p.vx *= 0.985f
-             p.vy = p.vy * 0.985f + 5f * dt
-             p.size *= 0.992f
-         }
-         while (particles.size > MAX_PARTICLES) particles.removeFirst()
-     }
-
-    private fun emitBurst(
-        x: Float,
-        y: Float,
-        count: Int,
-        speedMin: Float,
-        speedMax: Float,
-        lifeMin: Float,
-        lifeMax: Float,
-        sizeMin: Float,
-        sizeMax: Float,
-        red: Float,
-        green: Float,
-        blue: Float,
-    ) {
-        repeat(count) {
-            val angle = Random.nextFloat() * (PI * 2f).toFloat()
-            val speed = speedMin + Random.nextFloat() * (speedMax - speedMin)
-            val life = lifeMin + Random.nextFloat() * (lifeMax - lifeMin)
-            val size = sizeMin + Random.nextFloat() * (sizeMax - sizeMin)
-            particles += Particle(
-                x = x,
-                y = y,
-                vx = cos(angle) * speed,
-                vy = sin(angle) * speed,
-                size = size,
-                life = life,
-                maxLife = life,
-                red = red,
-                green = green,
-                blue = blue,
-            )
-        }
-    }
-
-    private fun emitDotParticles(x: Float, y: Float) {
-        emitBurst(x, y, count = 14, speedMin = 26f, speedMax = 88f, lifeMin = 0.24f, lifeMax = 0.58f, sizeMin = 1.6f, sizeMax = 3.6f, red = 1f, green = 0.94f, blue = 0.68f)
-    }
-
-    private fun emitPowerPelletParticles(x: Float, y: Float) {
-        emitBurst(x, y, count = 18, speedMin = 30f, speedMax = 92f, lifeMin = 0.32f, lifeMax = 0.62f, sizeMin = 1.8f, sizeMax = 4.2f, red = 1f, green = 0.98f, blue = 0.7f)
-    }
-
-    private fun emitGhostEatenParticles(x: Float, y: Float, ghostType: GhostType) {
-        if (!enhancedGhostExplosionsEnabled) {
-            emitBurst(x, y, count = 22, speedMin = 48f, speedMax = 130f, lifeMin = 0.35f, lifeMax = 0.85f, sizeMin = 2f, sizeMax = 4.8f, red = 1f, green = 1f, blue = 1f)
-            return
-        }
-        val color = ghostAuraColor(ghostType)
-        emitBurst(x, y, count = 28, speedMin = 48f, speedMax = 140f, lifeMin = 0.35f, lifeMax = 0.9f, sizeMin = 2f, sizeMax = 5.2f, red = color.red, green = color.green, blue = color.blue)
-    }
-
-    private fun emitDeathParticles(x: Float, y: Float) {
-        emitBurst(x, y, count = 56, speedMin = 48f, speedMax = 210f, lifeMin = 0.45f, lifeMax = 1.15f, sizeMin = 2.6f, sizeMax = 7.2f, red = 1f, green = 0.9f, blue = 0.24f)
-        emitBurst(x, y, count = 40, speedMin = 30f, speedMax = 145f, lifeMin = 0.55f, lifeMax = 1.35f, sizeMin = 2.4f, sizeMax = 6.4f, red = 1f, green = 0.55f, blue = 0.12f)
-        emitBurst(x, y, count = 28, speedMin = 80f, speedMax = 250f, lifeMin = 0.22f, lifeMax = 0.62f, sizeMin = 1.4f, sizeMax = 3.8f, red = 1f, green = 1f, blue = 0.95f)
-
-        val shards = 20
-        repeat(shards) { i ->
-            val angle = ((i.toFloat() / shards) * (PI * 2f)).toFloat() + Random.nextFloat() * 0.08f
-            val speed = 120f + Random.nextFloat() * 170f
-            val life = 0.35f + Random.nextFloat() * 0.45f
-            val size = 2.2f + Random.nextFloat() * 2.6f
-            particles += Particle(
-                x = x,
-                y = y,
-                vx = cos(angle) * speed,
-                vy = sin(angle) * speed,
-                size = size,
-                life = life,
-                maxLife = life,
-                red = 1f,
-                green = 0.98f,
-                blue = 0.7f,
-            )
-        }
-    }
-
-    private fun emitFruitParticles(x: Float, y: Float, type: FruitType) {
-        val color = when (type) {
-            FruitType.CHERRY, FruitType.STRAWBERRY, FruitType.APPLE -> floatArrayOf(0.96f, 0.2f, 0.2f)
-            FruitType.ORANGE -> floatArrayOf(1f, 0.64f, 0.16f)
-            FruitType.MELON -> floatArrayOf(0.35f, 0.88f, 0.45f)
-            FruitType.GALAXIAN, FruitType.BELL, FruitType.KEY -> floatArrayOf(1f, 0.9f, 0.35f)
-        }
-        emitBurst(
-            x,
-            y,
-            count = 26,
-            speedMin = 30f,
-            speedMax = 115f,
-            lifeMin = 0.32f,
-            lifeMax = 0.78f,
-            sizeMin = 1.8f,
-            sizeMax = 4.6f,
-            red = color[0],
-            green = color[1],
-            blue = color[2],
-        )
-    }
-
-     private fun emitPacTrail() {
-         if (phase != GamePhase.PLAYING && phase != GamePhase.ATTRACT_DEMO) return
-         if (frightenedTimer > 0f) return // Frightened trail takes over
-         
-         emitBurst(
-             x = pacPixelX(),
-             y = pacPixelY(),
-             count = 1,
-             speedMin = 8f, speedMax = 20f,
-             lifeMin = 0.2f, lifeMax = 0.5f,
-             sizeMin = 1.4f, sizeMax = 2.8f,
-             red = 1f, green = 0.9f, blue = 0.1f,
-         )
-     }
-
-     private fun emitFrightenedTrail() {
-         if (!frightenedParticleTrailEnabled) return
-         if (frightenedTimer <= 0f) return
-         if (phase != GamePhase.PLAYING && phase != GamePhase.ATTRACT_DEMO) return
-         
-         val count = if (Random.nextFloat() > 0.4f) 3 else 2
-         emitBurst(
-             x = pacPixelX(),
-             y = pacPixelY(),
-             count = count,
-             speedMin = 15f, speedMax = 45f,
-             lifeMin = 0.4f, lifeMax = 0.8f,
-             sizeMin = 2.0f, sizeMax = 4.0f,
-             red = 0.3f, green = 0.5f, blue = 1f,
-         )
-     }
-
-     private fun emitAmbientDust(dt: Float) {
-         if (!ambientDustEnabled) return
-         if (phase != GamePhase.PLAYING && phase != GamePhase.ATTRACT_DEMO) return
-         
-         dustEmitAccumulator += dt
-         val interval = 0.15f
-         if (dustEmitAccumulator < interval) return
-         dustEmitAccumulator -= interval
-         
-         val mazePixelWidth = Maze.COLS * Maze.TILE.toFloat()
-         val mazePixelHeight = Maze.ROWS * Maze.TILE.toFloat()
-         val rx = Maze.OFFSET_X + Random.nextFloat() * mazePixelWidth
-         val ry = Maze.OFFSET_Y + Random.nextFloat() * mazePixelHeight
-         
-         emitBurst(
-             x = rx, y = ry,
-             count = 1,
-             speedMin = 2f, speedMax = 8f,
-             lifeMin = 1.5f, lifeMax = 3.0f,
-             sizeMin = 0.8f, sizeMax = 1.4f,
-             red = 0.6f, green = 0.6f, blue = 0.7f,
-         )
-     }
-
-     private fun emitLevelWinConfetti() {
-         if (!levelWinConfettiEnabled) return
-         
-         val cx = pacPixelX()
-         val cy = pacPixelY()
-         
-         val colors = listOf(
-             Triple(1f, 0.2f, 0.2f),
-             Triple(0.2f, 1f, 0.3f),
-             Triple(0.3f, 0.5f, 1f),
-             Triple(1f, 1f, 0.2f),
-             Triple(1f, 0.5f, 1f),
-         )
-         for ((r, g, b) in colors) {
-             emitBurst(cx, cy, count = 10, speedMin = 60f, speedMax = 200f,
-                 lifeMin = 0.5f, lifeMax = 1.2f, sizeMin = 1.8f, sizeMax = 4f,
-                 red = r, green = g, blue = b)
-         }
-     }
 
      private fun pacPixelX(): Float = Maze.centerX(pacGridX) + pacDir.dx * pacProgress * Maze.TILE
     private fun pacPixelY(): Float = Maze.centerY(pacGridY) + pacDir.dy * pacProgress * Maze.TILE
@@ -1869,17 +1668,6 @@ class PacmanGame : PulseEngineGame() {
                 s.setDrawColor(0.98f, 0.92f, 0.45f, 1f)
                 drawFilledCircle(s, cx, cy, 5f, 12)
             }
-        }
-    }
-
-     private fun renderParticles(s: Surface) {
-        if (particles.isEmpty()) return
-
-        for (p in particles) {
-            val life = (p.life / p.maxLife).coerceIn(0f, 1f)
-            val size = p.size * (0.72f + life * 0.45f)
-            s.setDrawColor(p.red, p.green, p.blue, life)
-            s.drawQuad(p.x - size * 0.5f, p.y - size * 0.5f, size, size)
         }
     }
 
@@ -2611,7 +2399,6 @@ class PacmanGame : PulseEngineGame() {
     )
 
      companion object {
-          private const val MAX_PARTICLES = 300
           private const val UI_SURFACE_NAME = "pacman_ui"
       }
 }

@@ -60,3 +60,35 @@ scoreManager.render(s)
   - onRender() effect management (18 function calls)
 - **Result**: 120-line module with clean post-processing encapsulation
 
+### Task 4: ParticleSystem
+- **Feasibility**: 90% (needed parameter passing for game state, duplicated ghostAuraColor)
+- **Functions moved**: 12 (updateParticles, emitBurst, emitDotParticles, emitPowerPelletParticles, emitGhostEatenParticles, emitDeathParticles, emitFruitParticles, emitPacTrail, emitFrightenedTrail, emitAmbientDust, emitLevelWinConfetti, renderParticles)
+- **State moved**: 6 variables (particles list, dustEmitAccumulator, frightenedParticleTrailEnabled, ambientDustEnabled, enhancedGhostExplosionsEnabled, levelWinConfettiEnabled)
+- **Constants moved**: 1 (MAX_PARTICLES to companion object)
+- **Helper function extracted**: ghostAuraColor() — duplicated in both ParticleSystem (for particle colors) and PacmanGame (for lighting setup)
+- **Key challenge**: Trail emission functions needed game state (pacPixelX/Y, phase, frightenedTimer) — solved by passing as parameters
+- **Signature changes**:
+  - `emitPacTrail(x: Float, y: Float, phase: GamePhase, frightenedTimer: Float)`
+  - `emitFrightenedTrail(x: Float, y: Float, phase: GamePhase, frightenedTimer: Float)`
+  - `emitAmbientDust(dt: Float, phase: GamePhase)`
+  - `emitLevelWinConfetti(x: Float, y: Float)` — changed from reading pacPixelX/Y internally to accepting coordinates
+- **Call sites updated**:
+  - Service menu items (4 references to particle toggle properties)
+  - Game loop emission calls (9 function calls with new parameters)
+  - Reset calls (3 `particles.clear()` → `particleSystem.reset()`)
+- **Result**: 235-line module with complete particle system encapsulation
+
+## Pattern Refinement
+
+### Handling Shared Helper Functions
+When a helper function is used by both the extracted manager and the main game:
+- **Option A**: Duplicate the function if it's pure logic (e.g., ghostAuraColor for color mapping)
+- **Option B**: Pass as lambda/callback if it has dependencies
+- **Decision criteria**: If function is <10 lines and stateless → duplicate; otherwise → callback
+
+### Parameter Passing for Context
+Extracted managers should NOT hold references back to PacmanGame. Instead:
+- Pass required game state as function parameters
+- Example: `emitPacTrail(x, y, phase, frightenedTimer)` instead of `emitPacTrail()` that reads from game
+- Benefit: Managers become testable in isolation
+
