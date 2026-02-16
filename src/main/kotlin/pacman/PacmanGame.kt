@@ -63,7 +63,7 @@ class PacmanGame : PulseEngineGame() {
     private var bloomEnabled = true
     private var crtStrength = 1f
     private var scanlineStrength = 1f
-    private var bloomStrength = 1f
+    private var bloomStrength = 0.5f
     private var entityHaloEnabled = true
     private var boardBacklightEnabled = true
     private var auraLightsEnabled = true
@@ -77,6 +77,7 @@ class PacmanGame : PulseEngineGame() {
     private var serviceMenuOpen = false
     private var serviceMenuCursorIndex = 1
     private var bootTestHold = false
+    private var debugLayerVisible = false
     private var lightingSystem: DirectLightingSystem? = null
     private var boardBacklight: Lamp? = null
     private var pacAuraLight: Lamp? = null
@@ -166,7 +167,8 @@ class PacmanGame : PulseEngineGame() {
         if (engine.input.wasClicked(Key.UP) || engine.input.wasClicked(Key.W)) pacNextDir = Direction.UP
         if (engine.input.wasClicked(Key.DOWN)) pacNextDir = Direction.DOWN
         if (engine.input.wasClicked(Key.LEFT) || engine.input.wasClicked(Key.A)) pacNextDir = Direction.LEFT
-        if (engine.input.wasClicked(Key.RIGHT) || engine.input.wasClicked(Key.D)) pacNextDir = Direction.RIGHT
+        if (engine.input.wasClicked(Key.RIGHT)) pacNextDir = Direction.RIGHT
+        if (engine.input.wasClicked(Key.D)) debugLayerVisible = !debugLayerVisible
         if (engine.input.wasClicked(Key.R)) resetGame()
         if (engine.input.wasClicked(Key.T)) {
             if (bootTestHold) {
@@ -838,11 +840,11 @@ class PacmanGame : PulseEngineGame() {
             renderScorePopups(s)
             if (geometryTestOverlayEnabled) renderGeometryTestOverlay(s)
             renderUI(uiSurface)
-            renderCrtDebugOverlay(debugSurface)
+            if (debugLayerVisible) renderCrtDebugOverlay(debugSurface)
         } else {
             uiSurface.setBackgroundColor(0f, 0f, 0f, 0f)
             renderStartupScreen(s)
-            renderCrtDebugOverlay(debugSurface)
+            if (debugLayerVisible) renderCrtDebugOverlay(debugSurface)
         }
         if (serviceMenuOpen) {
             renderServiceMenu(uiSurface)
