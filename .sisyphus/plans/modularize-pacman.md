@@ -45,7 +45,7 @@
 
 ---
 
-- [ ] 2. Extract ScoreManager
+- [x] 2. Extract ScoreManager
 
   **What to do**:
   1. Create `src/main/kotlin/pacman/ScoreManager.kt`
