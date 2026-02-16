@@ -84,7 +84,7 @@
 
 ---
 
-- [ ] 3. Extract PostProcessingManager
+- [x] 3. Extract PostProcessingManager
 
   **What to do**:
   1. Create `src/main/kotlin/pacman/PostProcessingManager.kt`
