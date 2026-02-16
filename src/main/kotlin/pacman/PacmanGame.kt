@@ -56,12 +56,6 @@ class PacmanGame : PulseEngineGame() {
      private var dustEmitAccumulator = 0f
      private var uiPulseTime = 0f
     private var lightingEnabled = true
-    private var crtEnabled = true
-    private var scanlineEnabled = true
-    private var bloomEnabled = true
-    private var crtStrength = 1f
-    private var scanlineStrength = 1f
-    private var bloomStrength = 0.5f
     private var entityHaloEnabled = true
     private var boardBacklightEnabled = true
     private var auraLightsEnabled = true
@@ -99,6 +93,7 @@ class PacmanGame : PulseEngineGame() {
      private val menuItems: List<MenuItem> by lazy { buildMenuItems() }
      private lateinit var soundManager: SoundManager
      private lateinit var scoreManager: ScoreManager
+     private lateinit var postProcessing: PostProcessingManager
 
      private var dotsEatenThisLevel = 0
     private var fruitSpawn70Done = false
@@ -142,7 +137,8 @@ class PacmanGame : PulseEngineGame() {
          engine.console.runScript("init.pes")
          engine.console.runScript("init-dev.pes")
           setupUiSurface()
-          configurePostEffects()
+         postProcessing = PostProcessingManager(engine)
+         postProcessing.configurePostEffects()
          soundManager = SoundManager(engine)
          soundManager.loadAll()
          scoreManager = ScoreManager()
@@ -195,111 +191,12 @@ class PacmanGame : PulseEngineGame() {
         }
     }
 
-    private fun configurePostEffects() {
-        if (crtEnabled) ensureCRTEffects()
-        updateCRTEffectSettings()
-        if (scanlineEnabled) {
-            ensureScanlineEffects()
-            updateScanlineEffectSettings()
-        }
-        if (bloomEnabled) {
-            ensureBloomEffects()
-            updateBloomEffectSettings()
-        }
-    }
-
-    private fun ensureCRTEffects() {
-        val mainSurface = engine.gfx.mainSurface
-        if (mainSurface.getPostProcessingEffect(CRT_EFFECT_NAME) == null) {
-            mainSurface.addPostProcessingEffect(CRTEffect(name = CRT_EFFECT_NAME))
-        }
-    }
-
-    private fun deleteCRTEffects() {
-        engine.gfx.mainSurface.deletePostProcessingEffect(CRT_EFFECT_NAME)
-    }
-
-    private fun ensureScanlineEffects() {
-        val mainSurface = engine.gfx.mainSurface
-        if (mainSurface.getPostProcessingEffect(SCANLINE_EFFECT_NAME) == null) {
-            mainSurface.addPostProcessingEffect(ScanlineEffect(name = SCANLINE_EFFECT_NAME))
-        }
-    }
-
-    private fun deleteScanlineEffects() {
-        engine.gfx.mainSurface.deletePostProcessingEffect(SCANLINE_EFFECT_NAME)
-    }
-
-    private fun ensureBloomEffects() {
-        val mainSurface = engine.gfx.mainSurface
-        if (mainSurface.getPostProcessingEffect(BLOOM_EFFECT_NAME) == null) {
-            mainSurface.addPostProcessingEffect(
-                BloomEffect(name = BLOOM_EFFECT_NAME).apply {
-                    intensity = 0.85f
-                    threshold = 1.05f
-                    thresholdSoftness = 0.7f
-                    radius = 0.0038f
-                }
-            )
-        }
-    }
-
-    private fun updateBloomEffectSettings() {
-        val gameplayPhase = isGameplayVisualPhase()
-        val mainBloom = engine.gfx.mainSurface.getPostProcessingEffect(BLOOM_EFFECT_NAME) as? BloomEffect
-        mainBloom?.apply {
-            val frightenedBoost = if (dynamicFrightenedBloomEnabled && frightenedTimer > 0f) 0.4f else 0f
-            intensity = (if (gameplayPhase) 1.35f * bloomStrength else 0.95f * bloomStrength) + frightenedBoost
-            threshold = if (gameplayPhase) 0.78f else 0.9f
-            thresholdSoftness = if (gameplayPhase) 0.86f else 0.78f
-            radius = if (gameplayPhase) {
-                0.0062f + (bloomStrength - 1f) * 0.0018f
-            } else {
-                0.0042f + (bloomStrength - 1f) * 0.0012f
-            }
-        }
-    }
-
-    private fun deleteBloomEffects() {
-        engine.gfx.mainSurface.deletePostProcessingEffect(BLOOM_EFFECT_NAME)
-    }
-
     private fun setupUiSurface() {
         engine.gfx.createSurface(UI_SURFACE_NAME)
             .setBackgroundColor(0f, 0f, 0f, 0f)
             .setBlendFunction(BlendFunction.NORMAL)
             .setIsVisible(true)
     }
-
-     private fun updateCRTEffectSettings() {
-        val mainEffect = engine.gfx.mainSurface.getPostProcessingEffect(CRT_EFFECT_NAME) as? CRTEffect
-        if (!crtEnabled) {
-            mainEffect?.apply {
-                vignetteStrength = 0f
-                curvature = 0f
-            }
-            return
-        }
-
-        val vignetteBase = 0.2f
-        val curvatureBase = 0.035f
-        mainEffect?.apply {
-            vignetteStrength = vignetteBase * crtStrength
-            curvature = curvatureBase * crtStrength
-        }
-    }
-
-    private fun updateScanlineEffectSettings() {
-        val mainEffect = engine.gfx.mainSurface.getPostProcessingEffect(SCANLINE_EFFECT_NAME) as? ScanlineEffect
-        val strength = if (scanlineEnabled) scanlineStrength else 0f
-        mainEffect?.strength = strength
-    }
-
-    private fun hasMainCrtEffect(): Boolean = engine.gfx.mainSurface.getPostProcessingEffect(CRT_EFFECT_NAME) != null
-
-    private fun hasMainScanlineEffect(): Boolean = engine.gfx.mainSurface.getPostProcessingEffect(SCANLINE_EFFECT_NAME) != null
-
-    private fun hasMainBloomEffect(): Boolean = engine.gfx.mainSurface.getPostProcessingEffect(BLOOM_EFFECT_NAME) != null
 
     private fun setupSceneLighting() {
         engine.scene.createEmptyAndSetActive("pacman-lighting.scn")
@@ -476,70 +373,70 @@ class PacmanGame : PulseEngineGame() {
         MenuItem(
             label = "CRT",
             type = MenuItemType.Toggle,
-            getter = { crtEnabled },
+            getter = { postProcessing.crtEnabled },
             setter = { value ->
-                crtEnabled = value
-                if (crtEnabled) {
-                    ensureCRTEffects()
-                    updateCRTEffectSettings()
+                postProcessing.crtEnabled = value
+                if (postProcessing.crtEnabled) {
+                    postProcessing.ensureCRTEffects()
+                    postProcessing.updateCRTEffectSettings()
                 } else {
-                    deleteCRTEffects()
+                    postProcessing.deleteCRTEffects()
                 }
             },
         ),
         MenuItem(
             label = "CRT Strength",
             type = MenuItemType.Slider,
-            getter = { crtStrength },
+            getter = { postProcessing.crtStrength },
             sliderSetter = { delta ->
-                crtStrength = (crtStrength + delta).coerceIn(0f, 2f)
-                updateCRTEffectSettings()
+                postProcessing.crtStrength = (postProcessing.crtStrength + delta).coerceIn(0f, 2f)
+                postProcessing.updateCRTEffectSettings()
             },
         ),
         MenuItem(
             label = "Scanline",
             type = MenuItemType.Toggle,
-            getter = { scanlineEnabled },
+            getter = { postProcessing.scanlineEnabled },
             setter = { value ->
-                scanlineEnabled = value
-                if (scanlineEnabled) {
-                    ensureScanlineEffects()
-                    updateScanlineEffectSettings()
+                postProcessing.scanlineEnabled = value
+                if (postProcessing.scanlineEnabled) {
+                    postProcessing.ensureScanlineEffects()
+                    postProcessing.updateScanlineEffectSettings()
                 } else {
-                    deleteScanlineEffects()
+                    postProcessing.deleteScanlineEffects()
                 }
             },
         ),
         MenuItem(
             label = "Scanline Strength",
             type = MenuItemType.Slider,
-            getter = { scanlineStrength },
+            getter = { postProcessing.scanlineStrength },
             sliderSetter = { delta ->
-                scanlineStrength = (scanlineStrength + delta).coerceIn(0f, 2f)
-                updateScanlineEffectSettings()
+                postProcessing.scanlineStrength = (postProcessing.scanlineStrength + delta).coerceIn(0f, 2f)
+                postProcessing.updateScanlineEffectSettings()
             },
         ),
         MenuItem(
             label = "Bloom",
             type = MenuItemType.Toggle,
-            getter = { bloomEnabled },
+            getter = { postProcessing.bloomEnabled },
             setter = { value ->
-                bloomEnabled = value
-                if (bloomEnabled) {
-                    ensureBloomEffects()
-                    updateBloomEffectSettings()
+                postProcessing.bloomEnabled = value
+                if (postProcessing.bloomEnabled) {
+                    postProcessing.ensureBloomEffects()
+                    postProcessing.updateBloomEffectSettings(frightenedTimer, dynamicFrightenedBloomEnabled, isGameplayVisualPhase())
                 } else {
-                    deleteBloomEffects()
+                    postProcessing.deleteBloomEffects()
                 }
             },
         ),
         MenuItem(
             label = "Bloom Strength",
             type = MenuItemType.Slider,
-            getter = { bloomStrength },
+            getter = { postProcessing.bloomStrength },
             sliderSetter = { delta ->
-                bloomStrength = (bloomStrength + delta).coerceIn(0f, 2f)
-                updateBloomEffectSettings()
+                postProcessing.bloomStrength = (postProcessing.bloomStrength + delta).coerceIn(0f, 2f)
+                postProcessing.updateBloomEffectSettings(frightenedTimer, dynamicFrightenedBloomEnabled, isGameplayVisualPhase())
             },
         ),
         MenuItem(
@@ -886,24 +783,24 @@ class PacmanGame : PulseEngineGame() {
          val s = engine.gfx.mainSurface
          val uiSurface = engine.gfx.getSurfaceOrDefault(UI_SURFACE_NAME)
          val gameplayPhase = isGameplayVisualPhase()
-        if (crtEnabled && !hasMainCrtEffect()) {
-            ensureCRTEffects()
-        } else if (!crtEnabled && hasMainCrtEffect()) {
-            deleteCRTEffects()
+        if (postProcessing.crtEnabled && !postProcessing.hasMainCrtEffect()) {
+            postProcessing.ensureCRTEffects()
+        } else if (!postProcessing.crtEnabled && postProcessing.hasMainCrtEffect()) {
+            postProcessing.deleteCRTEffects()
         }
-        if (scanlineEnabled && !hasMainScanlineEffect()) {
-            ensureScanlineEffects()
-        } else if (!scanlineEnabled && hasMainScanlineEffect()) {
-            deleteScanlineEffects()
+        if (postProcessing.scanlineEnabled && !postProcessing.hasMainScanlineEffect()) {
+            postProcessing.ensureScanlineEffects()
+        } else if (!postProcessing.scanlineEnabled && postProcessing.hasMainScanlineEffect()) {
+            postProcessing.deleteScanlineEffects()
         }
-        if (bloomEnabled && !hasMainBloomEffect()) {
-            ensureBloomEffects()
-        } else if (!bloomEnabled && hasMainBloomEffect()) {
-            deleteBloomEffects()
+        if (postProcessing.bloomEnabled && !postProcessing.hasMainBloomEffect()) {
+            postProcessing.ensureBloomEffects()
+        } else if (!postProcessing.bloomEnabled && postProcessing.hasMainBloomEffect()) {
+            postProcessing.deleteBloomEffects()
         }
-        updateCRTEffectSettings()
-        updateScanlineEffectSettings()
-        updateBloomEffectSettings()
+        postProcessing.updateCRTEffectSettings()
+        postProcessing.updateScanlineEffectSettings()
+        postProcessing.updateBloomEffectSettings(frightenedTimer, dynamicFrightenedBloomEnabled, gameplayPhase)
         s.setBackgroundColor(0f, 0f, 0f, 1f)
         if (gameplayPhase) {
             uiSurface.setBackgroundColor(0f, 0f, 0f, 0f)
@@ -2715,10 +2612,7 @@ class PacmanGame : PulseEngineGame() {
 
      companion object {
           private const val MAX_PARTICLES = 300
-          private const val CRT_EFFECT_NAME = "pacman_crt"
           private const val UI_SURFACE_NAME = "pacman_ui"
-          private const val SCANLINE_EFFECT_NAME = "pacman_scanline"
-          private const val BLOOM_EFFECT_NAME = "pacman_bloom"
       }
 }
 
