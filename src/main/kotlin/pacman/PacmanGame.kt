@@ -126,6 +126,7 @@ class PacmanGame : PulseEngineGame() {
         engine.console.runScript("init.pes")
         engine.console.runScript("init-dev.pes")
         setupUiSurface()
+        setupDebugSurface()
         configurePostEffects()
         loadGameSounds()
         highScore = engine.data.loadObject<HighScoreData>("highscore.json")?.score ?: 0
@@ -294,6 +295,13 @@ class PacmanGame : PulseEngineGame() {
 
     private fun setupUiSurface() {
         engine.gfx.createSurface(UI_SURFACE_NAME)
+            .setBackgroundColor(0f, 0f, 0f, 0f)
+            .setBlendFunction(BlendFunction.NORMAL)
+            .setIsVisible(true)
+    }
+
+    private fun setupDebugSurface() {
+        engine.gfx.createSurface(DEBUG_SURFACE_NAME)
             .setBackgroundColor(0f, 0f, 0f, 0f)
             .setBlendFunction(BlendFunction.NORMAL)
             .setIsVisible(true)
@@ -626,6 +634,7 @@ class PacmanGame : PulseEngineGame() {
     override fun onRender() {
         val s = engine.gfx.mainSurface
         val uiSurface = engine.gfx.getSurfaceOrDefault(UI_SURFACE_NAME)
+        val debugSurface = engine.gfx.getSurfaceOrDefault(DEBUG_SURFACE_NAME)
         val gameplayPhase = isGameplayVisualPhase()
         if (crtEnabled && !hasMainCrtEffect()) {
             ensureCRTEffects()
@@ -657,11 +666,11 @@ class PacmanGame : PulseEngineGame() {
             renderScorePopups(s)
             if (geometryTestOverlayEnabled) renderGeometryTestOverlay(s)
             renderUI(uiSurface)
-            renderCrtDebugOverlay(uiSurface)
+            renderCrtDebugOverlay(debugSurface)
         } else {
             uiSurface.setBackgroundColor(0f, 0f, 0f, 0f)
             renderStartupScreen(s)
-            renderCrtDebugOverlay(s)
+            renderCrtDebugOverlay(debugSurface)
         }
     }
 
@@ -2332,6 +2341,7 @@ class PacmanGame : PulseEngineGame() {
         private const val UI_SURFACE_NAME = "pacman_ui"
         private const val SCANLINE_EFFECT_NAME = "pacman_scanline"
         private const val BLOOM_EFFECT_NAME = "pacman_bloom"
+        private const val DEBUG_SURFACE_NAME = "pacman_debug"
     }
 }
 
