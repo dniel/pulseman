@@ -1047,7 +1047,7 @@ Task 11: Dynamic Bloom During Frightened
 
 ---
 
-- [ ] 10. Fog of War / Darkness
+- [x] 10. Fog of War / Darkness
 
   **What to do**:
   This is the most complex task. It creates a limited-visibility experience where pac-man's aura is the primary light source and the rest of the maze is dark.
