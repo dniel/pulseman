@@ -247,7 +247,8 @@ class PacmanGame : PulseEngineGame() {
         val gameplayPhase = isGameplayVisualPhase()
         val mainBloom = engine.gfx.mainSurface.getPostProcessingEffect(BLOOM_EFFECT_NAME) as? BloomEffect
         mainBloom?.apply {
-            intensity = if (gameplayPhase) 1.35f * bloomStrength else 0.95f * bloomStrength
+            val frightenedBoost = if (dynamicFrightenedBloomEnabled && frightenedTimer > 0f) 0.4f else 0f
+            intensity = (if (gameplayPhase) 1.35f * bloomStrength else 0.95f * bloomStrength) + frightenedBoost
             threshold = if (gameplayPhase) 0.78f else 0.9f
             thresholdSoftness = if (gameplayPhase) 0.86f else 0.78f
             radius = if (gameplayPhase) {

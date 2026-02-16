@@ -1150,7 +1150,7 @@ Task 11: Dynamic Bloom During Frightened
 
 ---
 
-- [ ] 11. Dynamic Bloom During Frightened Mode
+- [x] 11. Dynamic Bloom During Frightened Mode
 
   **What to do**:
   1. In `updateBloomEffectSettings()` (or wherever bloom is updated per frame, around line ~269-282): add frightened boost:
