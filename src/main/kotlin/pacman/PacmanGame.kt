@@ -31,14 +31,11 @@ class PacmanGame : PulseEngineGame() {
     private var mouthAngle = 0.25f
     private var mouthOpening = true
 
-    private val ghosts = mutableListOf<GhostState>()
-    private val scorePopups = mutableListOf<ScorePopup>()
-    private val particles = mutableListOf<Particle>()
+     private val ghosts = mutableListOf<GhostState>()
+     private val particles = mutableListOf<Particle>()
 
-    private var score = 0
-    private var highScore = 0
-    private var lives = 3
-    private var level = 1
+     private var lives = 3
+     private var level = 1
 
     private var phase = GamePhase.READY
     private var bootTimer = 0f
@@ -101,6 +98,7 @@ class PacmanGame : PulseEngineGame() {
 
      private val menuItems: List<MenuItem> by lazy { buildMenuItems() }
      private lateinit var soundManager: SoundManager
+     private lateinit var scoreManager: ScoreManager
 
      private var dotsEatenThisLevel = 0
     private var fruitSpawn70Done = false
@@ -147,14 +145,15 @@ class PacmanGame : PulseEngineGame() {
           configurePostEffects()
          soundManager = SoundManager(engine)
          soundManager.loadAll()
-         highScore = engine.data.loadObject<HighScoreData>("highscore.json")?.score ?: 0
+         scoreManager = ScoreManager()
+         scoreManager.highScore = engine.data.loadObject<HighScoreData>("highscore.json")?.score ?: 0
          resetGame()
          setupSceneLighting()
      }
 
-    override fun onDestroy() {
-        engine.data.saveObject(HighScoreData(highScore), "highscore.json")
-    }
+     override fun onDestroy() {
+         engine.data.saveObject(HighScoreData(scoreManager.highScore), "highscore.json")
+     }
 
     override fun onUpdate() {
         if (engine.input.wasClicked(Key.S)) {
@@ -875,11 +874,11 @@ class PacmanGame : PulseEngineGame() {
         if (attractDemoGameOverTimer > 0f) {
             attractDemoGameOverTimer = (attractDemoGameOverTimer - dt).coerceAtLeast(0f)
         }
-        if (isNonGameplayLightsOffPhase()) {
-            setLightingEnabledState(false)
-        }
-        updateScorePopups(dt)
-        updateParticles(dt)
+         if (isNonGameplayLightsOffPhase()) {
+             setLightingEnabledState(false)
+         }
+         scoreManager.update(dt)
+         updateParticles(dt)
         syncSceneLights()
     }
 
@@ -912,10 +911,10 @@ class PacmanGame : PulseEngineGame() {
             if (entityHaloEnabled) renderEntityBloomHalos(s)
             renderFruit(s)
             if (phase != GamePhase.DYING) renderGhosts(s)
-            renderPacman(s)
-            renderParticles(s)
-             renderScorePopups(s)
-             if (geometryTestOverlayEnabled) renderGeometryTestOverlay(s)
+             renderPacman(s)
+             renderParticles(s)
+              scoreManager.render(s)
+              if (geometryTestOverlayEnabled) renderGeometryTestOverlay(s)
              renderUI(uiSurface)
          } else {
              uiSurface.setBackgroundColor(0f, 0f, 0f, 0f)
@@ -948,17 +947,16 @@ class PacmanGame : PulseEngineGame() {
         lightingSystem?.enabled = enabled
     }
 
-     private fun resetGame() {
-         serviceMenuOpen = false
-         bootTestHold = false
-         Maze.reset()
-         score = 0
-         lives = 3
-         level = 1
-         particles.clear()
-         dustEmitAccumulator = 0f
-         highScore = max(highScore, score)
-         startLevelState(resetDots = true)
+      private fun resetGame() {
+          serviceMenuOpen = false
+          bootTestHold = false
+          Maze.reset()
+          scoreManager.reset()
+          lives = 3
+          level = 1
+          particles.clear()
+          dustEmitAccumulator = 0f
+          startLevelState(resetDots = true)
         phase = GamePhase.BOOT
         bootTimer = bootDuration
         attractTimer = 6f
@@ -970,18 +968,17 @@ class PacmanGame : PulseEngineGame() {
         setLightingEnabledState(false)
     }
 
-    private fun startNewGameFromStartup() {
-        serviceMenuOpen = false
-        bootTestHold = false
-        Maze.reset()
-        score = 0
-        lives = 3
-        level = 1
-        particles.clear()
-        highScore = max(highScore, score)
-        startLevelState(resetDots = true)
-        beginReadyPhase()
-    }
+     private fun startNewGameFromStartup() {
+         serviceMenuOpen = false
+         bootTestHold = false
+         Maze.reset()
+         scoreManager.reset()
+         lives = 3
+         level = 1
+         particles.clear()
+         startLevelState(resetDots = true)
+         beginReadyPhase()
+     }
 
     private fun enterAttractMode() {
         phase = GamePhase.ATTRACT
@@ -989,18 +986,18 @@ class PacmanGame : PulseEngineGame() {
         setLightingEnabledState(false)
     }
 
-    private fun startAttractDemo() {
-        Maze.reset()
-        score = 0
-        lives = 3
-        level = 1
-        particles.clear()
-        attractDemoGameOverTimer = 0f
-        setLightingEnabledState(true)
-        startLevelState(resetDots = true)
-        phase = GamePhase.ATTRACT_DEMO
-        attractDemoTimer = attractDemoDuration
-    }
+     private fun startAttractDemo() {
+         Maze.reset()
+         scoreManager.reset()
+         lives = 3
+         level = 1
+         particles.clear()
+         attractDemoGameOverTimer = 0f
+         setLightingEnabledState(true)
+         startLevelState(resetDots = true)
+         phase = GamePhase.ATTRACT_DEMO
+         attractDemoTimer = attractDemoDuration
+     }
 
     private fun enterStartScreen() {
         serviceMenuOpen = false
@@ -1168,20 +1165,20 @@ class PacmanGame : PulseEngineGame() {
     private fun eatDotAt(col: Int, row: Int) {
         if (col !in 0 until Maze.COLS || row !in 0 until Maze.ROWS) return
         when (Maze.grid[row][col]) {
-            Maze.DOT -> {
-                Maze.grid[row][col] = Maze.EMPTY
-                 dotsEatenThisLevel++
-                 addScore(10)
-                 maybeSpawnFruit()
+             Maze.DOT -> {
+                 Maze.grid[row][col] = Maze.EMPTY
+                  dotsEatenThisLevel++
+                  scoreManager.addScore(10)
+                  maybeSpawnFruit()
                  emitDotParticles(Maze.centerX(col), Maze.centerY(row))
                  soundManager.play("pacman_chomp")
             }
 
-            Maze.POWER -> {
-                Maze.grid[row][col] = Maze.EMPTY
-                dotsEatenThisLevel++
-                 addScore(50)
-                 maybeSpawnFruit()
+             Maze.POWER -> {
+                 Maze.grid[row][col] = Maze.EMPTY
+                 dotsEatenThisLevel++
+                  scoreManager.addScore(50)
+                  maybeSpawnFruit()
                  emitPowerPelletParticles(Maze.centerX(col), Maze.centerY(row))
                  activateFrightened()
                  soundManager.play("pacman_beginning")
@@ -1220,16 +1217,16 @@ class PacmanGame : PulseEngineGame() {
         }
     }
 
-    private fun checkFruitCollision() {
-        val fruit = activeFruit ?: return
-        if (pacGridX == fruit.col && pacGridY == fruit.row) {
-             addScore(fruit.type.score)
-             emitFruitParticles(Maze.centerX(fruit.col), Maze.centerY(fruit.row), fruit.type)
-             addScorePopup(Maze.centerX(fruit.col), Maze.centerY(fruit.row), fruit.type.score.toString())
-             activeFruit = null
-             soundManager.play("pacman_eatfruit")
-        }
-    }
+     private fun checkFruitCollision() {
+         val fruit = activeFruit ?: return
+         if (pacGridX == fruit.col && pacGridY == fruit.row) {
+              scoreManager.addScore(fruit.type.score)
+              emitFruitParticles(Maze.centerX(fruit.col), Maze.centerY(fruit.row), fruit.type)
+              scoreManager.addPopup(Maze.centerX(fruit.col), Maze.centerY(fruit.row), fruit.type.score.toString())
+              activeFruit = null
+              soundManager.play("pacman_eatfruit")
+         }
+     }
 
     private fun activateFrightened() {
         frightenedTimer = frightenedDurationForLevel()
@@ -1411,15 +1408,15 @@ class PacmanGame : PulseEngineGame() {
 
             if (sameCell || (adjacent && pacProgress > 0.5f && ghost.direction == pacDir.opposite())) {
                 when (ghost.mode) {
-                    GhostMode.FRIGHTENED -> {
-                        ghost.mode = GhostMode.EATEN
-                        pelletsEatenForGhostScore++
-                         val ghostScore = 200 * (1 shl (pelletsEatenForGhostScore - 1).coerceAtMost(3))
-                         addScore(ghostScore)
-                         emitGhostEatenParticles(ghostPixelX(ghost), ghostPixelY(ghost), ghost.type)
-                         addScorePopup(ghostPixelX(ghost), ghostPixelY(ghost) - 8f, ghostScore.toString())
-                         soundManager.play("pacman_eatghost")
-                    }
+                     GhostMode.FRIGHTENED -> {
+                         ghost.mode = GhostMode.EATEN
+                         pelletsEatenForGhostScore++
+                          val ghostScore = 200 * (1 shl (pelletsEatenForGhostScore - 1).coerceAtMost(3))
+                          scoreManager.addScore(ghostScore)
+                          emitGhostEatenParticles(ghostPixelX(ghost), ghostPixelY(ghost), ghost.type)
+                          scoreManager.addPopup(ghostPixelX(ghost), ghostPixelY(ghost) - 8f, ghostScore.toString())
+                          soundManager.play("pacman_eatghost")
+                     }
 
                      GhostMode.EATEN -> {}
                      else -> {
@@ -1456,17 +1453,7 @@ class PacmanGame : PulseEngineGame() {
         }
     }
 
-    private fun updateScorePopups(dt: Float) {
-        val iterator = scorePopups.iterator()
-        while (iterator.hasNext()) {
-            val popup = iterator.next()
-            popup.timer -= dt
-            popup.y -= dt * 28f
-            if (popup.timer <= 0f) iterator.remove()
-        }
-    }
-
-     private fun updateParticles(dt: Float) {
+      private fun updateParticles(dt: Float) {
          val it = particles.iterator()
          while (it.hasNext()) {
              val p = it.next()
@@ -1669,16 +1656,7 @@ class PacmanGame : PulseEngineGame() {
     private fun frightenedDurationForLevel(): Float = max(3f, 8f - (level - 1) * 0.5f)
     private fun frightenedGhostSpeedForLevel(): Float = ghostSpeedForLevel() * 0.58f
 
-    private fun addScore(amount: Int) {
-        score += amount
-        if (score > highScore) highScore = score
-    }
-
-    private fun addScorePopup(x: Float, y: Float, text: String) {
-        scorePopups += ScorePopup(x = x, y = y, text = text, timer = 1f)
-    }
-
-     private fun renderMaze(s: Surface) {
+      private fun renderMaze(s: Surface) {
         val wallColor = floatArrayOf(0.62f, 0.88f, 1f)
         val thickness = if (wallThinOutlineMode) 1f else 3f
         val wallBase = when {
@@ -1997,15 +1975,7 @@ class PacmanGame : PulseEngineGame() {
         }
     }
 
-    private fun renderScorePopups(s: Surface) {
-        for (popup in scorePopups) {
-            val alpha = popup.timer.coerceIn(0f, 1f)
-            s.setDrawColor(1f, 1f, 1f, alpha)
-            s.drawText(popup.text, popup.x, popup.y, fontSize = 18f, xOrigin = 0.5f, yOrigin = 0.5f)
-        }
-    }
-
-    private fun renderParticles(s: Surface) {
+     private fun renderParticles(s: Surface) {
         if (particles.isEmpty()) return
 
         for (p in particles) {
@@ -2200,9 +2170,9 @@ class PacmanGame : PulseEngineGame() {
         }
     }
 
-    private fun renderUI(s: Surface) {
-        val scoreText = score.toString().padStart(6, '0')
-        val highScoreText = highScore.toString().padStart(6, '0')
+     private fun renderUI(s: Surface) {
+         val scoreText = scoreManager.score.toString().padStart(6, '0')
+         val highScoreText = scoreManager.highScore.toString().padStart(6, '0')
 
         s.setDrawColor(0.95f, 0.95f, 0.95f, 1f)
         s.drawText("1UP", 20f, 15f, fontSize = 20f)
@@ -2625,9 +2595,9 @@ class PacmanGame : PulseEngineGame() {
         s.setDrawColor(1f, 0.95f, 0.1f, 1f)
         s.drawText("HIGH SCORES", centerX, centerY - 120f, fontSize = 56f, xOrigin = 0.5f, yOrigin = 0.5f)
 
-        val rows = listOf(
-            "1ST  PLAYER   ${highScore.toString().padStart(6, '0')}",
-            "2ND  AAA      020000",
+         val rows = listOf(
+             "1ST  PLAYER   ${scoreManager.highScore.toString().padStart(6, '0')}",
+             "2ND  AAA      020000",
             "3RD  BBB      015000",
             "4TH  CCC      010000",
             "5TH  DDD      005000",
