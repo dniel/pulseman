@@ -76,9 +76,8 @@ class PacmanGame : PulseEngineGame() {
     private var sceneBrightness = SceneBrightness.HIGH
     private var serviceMenuOpen = false
     private var serviceMenuCursorIndex = 1
-    private var bootTestHold = false
-    private var debugLayerVisible = false
-    private var lightingSystem: DirectLightingSystem? = null
+     private var bootTestHold = false
+     private var lightingSystem: DirectLightingSystem? = null
     private var boardBacklight: Lamp? = null
     private var pacAuraLight: Lamp? = null
     private var fruitAuraLight: Lamp? = null
@@ -131,9 +130,8 @@ class PacmanGame : PulseEngineGame() {
         engine.config.targetFps = 60
         engine.console.runScript("init.pes")
         engine.console.runScript("init-dev.pes")
-        setupUiSurface()
-        setupDebugSurface()
-        configurePostEffects()
+         setupUiSurface()
+         configurePostEffects()
         loadGameSounds()
         highScore = engine.data.loadObject<HighScoreData>("highscore.json")?.score ?: 0
         resetGame()
@@ -167,9 +165,8 @@ class PacmanGame : PulseEngineGame() {
         if (engine.input.wasClicked(Key.UP) || engine.input.wasClicked(Key.W)) pacNextDir = Direction.UP
         if (engine.input.wasClicked(Key.DOWN)) pacNextDir = Direction.DOWN
         if (engine.input.wasClicked(Key.LEFT) || engine.input.wasClicked(Key.A)) pacNextDir = Direction.LEFT
-        if (engine.input.wasClicked(Key.RIGHT)) pacNextDir = Direction.RIGHT
-        if (engine.input.wasClicked(Key.D)) debugLayerVisible = !debugLayerVisible
-        if (engine.input.wasClicked(Key.R)) resetGame()
+         if (engine.input.wasClicked(Key.RIGHT)) pacNextDir = Direction.RIGHT
+         if (engine.input.wasClicked(Key.R)) resetGame()
         if (engine.input.wasClicked(Key.T)) {
             if (bootTestHold) {
                 bootTestHold = false
@@ -260,14 +257,7 @@ class PacmanGame : PulseEngineGame() {
             .setIsVisible(true)
     }
 
-    private fun setupDebugSurface() {
-        engine.gfx.createSurface(DEBUG_SURFACE_NAME)
-            .setBackgroundColor(0f, 0f, 0f, 0f)
-            .setBlendFunction(BlendFunction.NORMAL)
-            .setIsVisible(true)
-    }
-
-    private fun updateCRTEffectSettings() {
+     private fun updateCRTEffectSettings() {
         val mainEffect = engine.gfx.mainSurface.getPostProcessingEffect(CRT_EFFECT_NAME) as? CRTEffect
         if (!crtEnabled) {
             mainEffect?.apply {
@@ -805,11 +795,10 @@ class PacmanGame : PulseEngineGame() {
         syncSceneLights()
     }
 
-    override fun onRender() {
-        val s = engine.gfx.mainSurface
-        val uiSurface = engine.gfx.getSurfaceOrDefault(UI_SURFACE_NAME)
-        val debugSurface = engine.gfx.getSurfaceOrDefault(DEBUG_SURFACE_NAME)
-        val gameplayPhase = isGameplayVisualPhase()
+     override fun onRender() {
+         val s = engine.gfx.mainSurface
+         val uiSurface = engine.gfx.getSurfaceOrDefault(UI_SURFACE_NAME)
+         val gameplayPhase = isGameplayVisualPhase()
         if (crtEnabled && !hasMainCrtEffect()) {
             ensureCRTEffects()
         } else if (!crtEnabled && hasMainCrtEffect()) {
@@ -837,16 +826,14 @@ class PacmanGame : PulseEngineGame() {
             if (phase != GamePhase.DYING) renderGhosts(s)
             renderPacman(s)
             renderParticles(s)
-            renderScorePopups(s)
-            if (geometryTestOverlayEnabled) renderGeometryTestOverlay(s)
-            renderUI(uiSurface)
-            if (debugLayerVisible) renderCrtDebugOverlay(debugSurface)
-        } else {
-            uiSurface.setBackgroundColor(0f, 0f, 0f, 0f)
-            renderStartupScreen(s)
-            if (debugLayerVisible) renderCrtDebugOverlay(debugSurface)
-        }
-        if (serviceMenuOpen) {
+             renderScorePopups(s)
+             if (geometryTestOverlayEnabled) renderGeometryTestOverlay(s)
+             renderUI(uiSurface)
+         } else {
+             uiSurface.setBackgroundColor(0f, 0f, 0f, 0f)
+             renderStartupScreen(s)
+         }
+         if (serviceMenuOpen) {
             renderServiceMenu(uiSurface)
         }
     }
@@ -2239,17 +2226,7 @@ class PacmanGame : PulseEngineGame() {
         }
     }
 
-    private fun renderCrtDebugOverlay(s: Surface) {
-        val crtMain = if (hasMainCrtEffect()) "Y" else "N"
-        val scanMain = if (hasMainScanlineEffect()) "Y" else "N"
-        val bloomMain = if (hasMainBloomEffect()) "Y" else "N"
-        val state = if (crtEnabled) "ON" else "OFF"
-        s.setDrawColor(0.72f, 0.92f, 1f, 0.9f)
-        s.drawText("CRT DBG state=$state main=$crtMain", 20f, engine.window.height - 142f, fontSize = 14f)
-        s.drawText("PP DBG scan=$scanMain bloom=$bloomMain", 20f, engine.window.height - 160f, fontSize = 14f)
-    }
-
-    private fun renderBootScreen(s: Surface) {
+     private fun renderBootScreen(s: Surface) {
         val centerX = engine.window.width / 2f
         val centerY = engine.window.height / 2f
         val elapsed = (bootDuration - bootTimer).coerceIn(0f, bootDuration)
@@ -2592,13 +2569,12 @@ class PacmanGame : PulseEngineGame() {
         val cycleSetter: (() -> Unit)? = null,
     )
 
-    companion object {
-        private const val CRT_EFFECT_NAME = "pacman_crt"
-        private const val UI_SURFACE_NAME = "pacman_ui"
-        private const val SCANLINE_EFFECT_NAME = "pacman_scanline"
-        private const val BLOOM_EFFECT_NAME = "pacman_bloom"
-        private const val DEBUG_SURFACE_NAME = "pacman_debug"
-    }
+     companion object {
+         private const val CRT_EFFECT_NAME = "pacman_crt"
+         private const val UI_SURFACE_NAME = "pacman_ui"
+         private const val SCANLINE_EFFECT_NAME = "pacman_scanline"
+         private const val BLOOM_EFFECT_NAME = "pacman_bloom"
+     }
 }
 
 private class MazeOccluder : Box(), DirectLightOccluder {
