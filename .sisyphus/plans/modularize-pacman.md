@@ -132,7 +132,7 @@
 
 ---
 
-- [ ] 4. Extract ParticleSystem
+- [x] 4. Extract ParticleSystem
 
   **What to do**:
   1. Create `src/main/kotlin/pacman/ParticleSystem.kt`
