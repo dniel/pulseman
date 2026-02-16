@@ -296,7 +296,7 @@ Task 11: Dynamic Bloom During Frightened
 
 ---
 
-- [ ] 1. Frightened Mode Ambient Color Shift
+- [x] 1. Frightened Mode Ambient Color Shift
 
   **What to do**:
   1. In `syncSceneLights()` (line ~1894): after the `playfieldLightsEnabled` check and before individual light updates, add ambient color logic:
