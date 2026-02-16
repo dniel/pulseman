@@ -165,7 +165,7 @@ class PacmanGame : PulseEngineGame() {
         if (engine.input.wasClicked(Key.UP) || engine.input.wasClicked(Key.W)) pacNextDir = Direction.UP
         if (engine.input.wasClicked(Key.DOWN)) pacNextDir = Direction.DOWN
         if (engine.input.wasClicked(Key.LEFT) || engine.input.wasClicked(Key.A)) pacNextDir = Direction.LEFT
-         if (engine.input.wasClicked(Key.RIGHT)) pacNextDir = Direction.RIGHT
+         if (engine.input.wasClicked(Key.RIGHT) || engine.input.wasClicked(Key.D)) pacNextDir = Direction.RIGHT
          if (engine.input.wasClicked(Key.R)) resetGame()
         if (engine.input.wasClicked(Key.T)) {
             if (bootTestHold) {
