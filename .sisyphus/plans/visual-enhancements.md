@@ -526,7 +526,7 @@ Task 11: Dynamic Bloom During Frightened
 
 ---
 
-- [ ] 4. Death Sequence Light Flicker
+- [x] 4. Death Sequence Light Flicker
 
   **What to do**:
   1. In `syncSceneLights()`: extend `playfieldLightsEnabled` to include `GamePhase.DYING`:

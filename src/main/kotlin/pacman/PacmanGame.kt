@@ -1972,10 +1972,11 @@ class PacmanGame : PulseEngineGame() {
     private fun syncSceneLights() {
         val pulse = 0.5f + 0.5f * sin(uiPulseTime * 3.8f)
         val spin = (uiPulseTime * 220f) % 360f
-        val playfieldLightsEnabled = phase in setOf(
-            GamePhase.PLAYING,
-            GamePhase.ATTRACT_DEMO,
-        )
+         val playfieldLightsEnabled = phase in setOf(
+             GamePhase.PLAYING,
+             GamePhase.ATTRACT_DEMO,
+             GamePhase.DYING,
+         )
 
         if (!playfieldLightsEnabled) {
             boardBacklight?.intensity = 0f
@@ -2018,9 +2019,20 @@ class PacmanGame : PulseEngineGame() {
                 size = 34f
                 intensity = if (auraLightsEnabled) 0.58f + pulse * 0.32f else 0f
             }
-        }
+         }
 
-        fruitAuraLight?.apply {
+         // Death sequence light flicker
+         if (phase == GamePhase.DYING) {
+             val deathProgress = 1f - (deathAnimTimer / 1.5f).coerceIn(0f, 1f)
+             val flicker = if ((deathAnimTimer * 12f).toInt() % 2 == 0) 0.3f else 1.0f
+             val fade = (1f - deathProgress).coerceAtLeast(0f)
+             
+             pacAuraLight?.intensity = (pacAuraLight?.intensity ?: 0f) * flicker * fade
+             ghostAuraLights.values.forEach { it.intensity = it.intensity * flicker * fade * 0.5f }
+             boardBacklight?.intensity = (boardBacklight?.intensity ?: 0f) * fade
+         }
+
+         fruitAuraLight?.apply {
             val fruit = activeFruit
             if (fruit == null) {
                 intensity = 0f
