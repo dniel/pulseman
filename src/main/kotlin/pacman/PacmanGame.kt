@@ -787,6 +787,7 @@ class PacmanGame : PulseEngineGame() {
                 attractDemoTimer -= dt
                 updateAttractPacmanControl()
                 updatePacman(dt)
+                emitFrightenedTrail()
                 updateGhosts(dt)
                 updateGhostModes(dt)
                 updateFruit(dt)
@@ -816,6 +817,7 @@ class PacmanGame : PulseEngineGame() {
 
             GamePhase.PLAYING -> {
                 updatePacman(dt)
+                emitFrightenedTrail()
                 updateGhosts(dt)
                 updateGhostModes(dt)
                 updateFruit(dt)
@@ -1606,6 +1608,23 @@ class PacmanGame : PulseEngineGame() {
             red = color[0],
             green = color[1],
             blue = color[2],
+        )
+    }
+
+    private fun emitFrightenedTrail() {
+        if (!frightenedParticleTrailEnabled) return
+        if (frightenedTimer <= 0f) return
+        if (phase != GamePhase.PLAYING && phase != GamePhase.ATTRACT_DEMO) return
+        
+        val count = if (Random.nextFloat() > 0.4f) 2 else 1
+        emitBurst(
+            x = pacPixelX(),
+            y = pacPixelY(),
+            count = count,
+            speedMin = 8f, speedMax = 25f,
+            lifeMin = 0.3f, lifeMax = 0.6f,
+            sizeMin = 1.2f, sizeMax = 2.4f,
+            red = 0.3f, green = 0.5f, blue = 1f,
         )
     }
 

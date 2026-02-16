@@ -610,7 +610,7 @@ Task 11: Dynamic Bloom During Frightened
 
 ---
 
-- [ ] 5. Frightened Mode Particle Trail
+- [x] 5. Frightened Mode Particle Trail
 
   **What to do**:
   1. Create a new function `emitFrightenedTrail()` near the other emit functions (after `emitFruitParticles()`, around line ~1531):
