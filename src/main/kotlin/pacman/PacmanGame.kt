@@ -71,7 +71,7 @@ class PacmanGame : PulseEngineGame() {
     private var wallOutlineEnabled = true
     private var wallThinOutlineMode = false
     private var geometryTestOverlayEnabled = false
-    private var lightingTargetMainEnabled = false
+    private var lightingTargetMainEnabled = true
     private var wallBevelDebug = false
     private var sceneBrightness = SceneBrightness.HIGH
     private var serviceMenuOpen = false
