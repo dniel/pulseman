@@ -703,7 +703,7 @@ Task 11: Dynamic Bloom During Frightened
 
 ---
 
-- [ ] 6. Ambient Floating Dust
+- [x] 6. Ambient Floating Dust
 
   **What to do**:
   1. Create a new function `emitAmbientDust()` near the other emit functions:

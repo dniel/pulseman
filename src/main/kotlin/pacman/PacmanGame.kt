@@ -55,8 +55,9 @@ class PacmanGame : PulseEngineGame() {
     private var ghostModeTimer = 0f
     private var ghostModeIndex = 0
     private var currentGhostMode = GhostMode.SCATTER
-    private var deathAnimTimer = 0f
-    private var uiPulseTime = 0f
+     private var deathAnimTimer = 0f
+     private var dustEmitAccumulator = 0f
+     private var uiPulseTime = 0f
     private var lightingEnabled = true
     private var crtEnabled = true
     private var scanlineEnabled = true
@@ -783,12 +784,13 @@ class PacmanGame : PulseEngineGame() {
                 }
             }
 
-            GamePhase.ATTRACT_DEMO -> {
-                attractDemoTimer -= dt
-                updateAttractPacmanControl()
-                updatePacman(dt)
-                emitFrightenedTrail()
-                updateGhosts(dt)
+             GamePhase.ATTRACT_DEMO -> {
+                 attractDemoTimer -= dt
+                 updateAttractPacmanControl()
+                 updatePacman(dt)
+                 emitFrightenedTrail()
+                 emitAmbientDust(dt)
+                 updateGhosts(dt)
                 updateGhostModes(dt)
                 updateFruit(dt)
                 checkCollisions()
@@ -815,10 +817,11 @@ class PacmanGame : PulseEngineGame() {
                 if (readyTimer <= 0f) phase = GamePhase.PLAYING
             }
 
-            GamePhase.PLAYING -> {
-                updatePacman(dt)
-                emitFrightenedTrail()
-                updateGhosts(dt)
+             GamePhase.PLAYING -> {
+                 updatePacman(dt)
+                 emitFrightenedTrail()
+                 emitAmbientDust(dt)
+                 updateGhosts(dt)
                 updateGhostModes(dt)
                 updateFruit(dt)
                 checkCollisions()
@@ -939,16 +942,17 @@ class PacmanGame : PulseEngineGame() {
         lightingSystem?.enabled = enabled
     }
 
-    private fun resetGame() {
-        serviceMenuOpen = false
-        bootTestHold = false
-        Maze.reset()
-        score = 0
-        lives = 3
-        level = 1
-        particles.clear()
-        highScore = max(highScore, score)
-        startLevelState(resetDots = true)
+     private fun resetGame() {
+         serviceMenuOpen = false
+         bootTestHold = false
+         Maze.reset()
+         score = 0
+         lives = 3
+         level = 1
+         particles.clear()
+         dustEmitAccumulator = 0f
+         highScore = max(highScore, score)
+         startLevelState(resetDots = true)
         phase = GamePhase.BOOT
         bootTimer = bootDuration
         attractTimer = 6f
@@ -1006,18 +1010,19 @@ class PacmanGame : PulseEngineGame() {
         tryPlaySound("pacman_beginning")
     }
 
-    private fun startLevelState(resetDots: Boolean) {
-        if (resetDots) Maze.reset()
-        ghostModeIndex = 0
-        currentGhostMode = modeSequence[0].first
-        ghostModeTimer = modeSequence[0].second
-        frightenedTimer = 0f
-        pelletsEatenForGhostScore = 0
-        dotsEatenThisLevel = 0
-        fruitSpawn70Done = false
-        fruitSpawn170Done = false
-        activeFruit = null
-        particles.clear()
+     private fun startLevelState(resetDots: Boolean) {
+         if (resetDots) Maze.reset()
+         ghostModeIndex = 0
+         currentGhostMode = modeSequence[0].first
+         ghostModeTimer = modeSequence[0].second
+         frightenedTimer = 0f
+         pelletsEatenForGhostScore = 0
+         dotsEatenThisLevel = 0
+         fruitSpawn70Done = false
+         fruitSpawn170Done = false
+         activeFruit = null
+         particles.clear()
+         dustEmitAccumulator = 0f
         ghostReleaseTimers = floatArrayOf(0f, 3f, 6f, 9f).map { max(0f, it - (level - 1) * 0.25f) }.toFloatArray()
         resetPositions()
     }
@@ -1611,24 +1616,48 @@ class PacmanGame : PulseEngineGame() {
         )
     }
 
-    private fun emitFrightenedTrail() {
-        if (!frightenedParticleTrailEnabled) return
-        if (frightenedTimer <= 0f) return
-        if (phase != GamePhase.PLAYING && phase != GamePhase.ATTRACT_DEMO) return
-        
-        val count = if (Random.nextFloat() > 0.4f) 2 else 1
-        emitBurst(
-            x = pacPixelX(),
-            y = pacPixelY(),
-            count = count,
-            speedMin = 8f, speedMax = 25f,
-            lifeMin = 0.3f, lifeMax = 0.6f,
-            sizeMin = 1.2f, sizeMax = 2.4f,
-            red = 0.3f, green = 0.5f, blue = 1f,
-        )
-    }
+     private fun emitFrightenedTrail() {
+         if (!frightenedParticleTrailEnabled) return
+         if (frightenedTimer <= 0f) return
+         if (phase != GamePhase.PLAYING && phase != GamePhase.ATTRACT_DEMO) return
+         
+         val count = if (Random.nextFloat() > 0.4f) 2 else 1
+         emitBurst(
+             x = pacPixelX(),
+             y = pacPixelY(),
+             count = count,
+             speedMin = 8f, speedMax = 25f,
+             lifeMin = 0.3f, lifeMax = 0.6f,
+             sizeMin = 1.2f, sizeMax = 2.4f,
+             red = 0.3f, green = 0.5f, blue = 1f,
+         )
+     }
 
-    private fun pacPixelX(): Float = Maze.centerX(pacGridX) + pacDir.dx * pacProgress * Maze.TILE
+     private fun emitAmbientDust(dt: Float) {
+         if (!ambientDustEnabled) return
+         if (phase != GamePhase.PLAYING && phase != GamePhase.ATTRACT_DEMO) return
+         
+         dustEmitAccumulator += dt
+         val interval = 0.15f
+         if (dustEmitAccumulator < interval) return
+         dustEmitAccumulator -= interval
+         
+         val mazePixelWidth = Maze.COLS * Maze.TILE.toFloat()
+         val mazePixelHeight = Maze.ROWS * Maze.TILE.toFloat()
+         val rx = Maze.OFFSET_X + Random.nextFloat() * mazePixelWidth
+         val ry = Maze.OFFSET_Y + Random.nextFloat() * mazePixelHeight
+         
+         emitBurst(
+             x = rx, y = ry,
+             count = 1,
+             speedMin = 2f, speedMax = 8f,
+             lifeMin = 1.5f, lifeMax = 3.0f,
+             sizeMin = 0.8f, sizeMax = 1.4f,
+             red = 0.6f, green = 0.6f, blue = 0.7f,
+         )
+     }
+
+     private fun pacPixelX(): Float = Maze.centerX(pacGridX) + pacDir.dx * pacProgress * Maze.TILE
     private fun pacPixelY(): Float = Maze.centerY(pacGridY) + pacDir.dy * pacProgress * Maze.TILE
     private fun ghostPixelX(g: GhostState): Float = Maze.centerX(g.gridX) + g.direction.dx * g.progress * Maze.TILE
     private fun ghostPixelY(g: GhostState): Float = Maze.centerY(g.gridY) + g.direction.dy * g.progress * Maze.TILE
