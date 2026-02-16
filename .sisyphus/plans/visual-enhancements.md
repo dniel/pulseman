@@ -969,7 +969,7 @@ Task 11: Dynamic Bloom During Frightened
 
 ---
 
-- [ ] 9. Native Fog Activation
+- [x] 9. Native Fog Activation
 
   **What to do**:
   1. In `syncSceneLights()` or a new helper called from `syncSceneLights()`, add fog control:

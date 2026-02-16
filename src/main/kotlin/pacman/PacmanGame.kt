@@ -2072,14 +2072,25 @@ class PacmanGame : PulseEngineGame() {
         }
 
         // Ambient color shift during frightened mode
-        val anyGhostFrightened = ghosts.any { it.mode == GhostMode.FRIGHTENED }
-        if (frightenedAmbientShiftEnabled && anyGhostFrightened) {
-            lightingSystem?.ambientColor = Color(0.02f, 0.03f, 0.12f, 0.85f)  // Cool blue
-        } else {
-            lightingSystem?.ambientColor = sceneBrightnessAmbient()  // Restore normal
-        }
+         val anyGhostFrightened = ghosts.any { it.mode == GhostMode.FRIGHTENED }
+         if (frightenedAmbientShiftEnabled && anyGhostFrightened) {
+             lightingSystem?.ambientColor = Color(0.02f, 0.03f, 0.12f, 0.85f)  // Cool blue
+         } else {
+             lightingSystem?.ambientColor = sceneBrightnessAmbient()  // Restore normal
+         }
 
-        boardBacklight?.intensity = if (boardBacklightEnabled) 0.5f + pulse * 0.1f else 0f
+         // Native fog control
+         lightingSystem?.apply {
+             if (nativeFogEnabled && playfieldLightsEnabled) {
+                 fogIntensity = nativeFogIntensity
+                 fogTurbulence = 1.5f
+                 fogScale = 0.3f
+             } else {
+                 fogIntensity = 0f
+             }
+         }
+
+         boardBacklight?.intensity = if (boardBacklightEnabled) 0.5f + pulse * 0.1f else 0f
 
         pacAuraLight?.apply {
             x = pacPixelX()
