@@ -71,11 +71,22 @@ class PacmanGame : PulseEngineGame() {
     private var wallOutlineEnabled = true
     private var wallThinOutlineMode = false
     private var geometryTestOverlayEnabled = false
-    private var lightingTargetMainEnabled = true
-    private var wallBevelDebug = false
-    private var sceneBrightness = SceneBrightness.HIGH
-    private var serviceMenuOpen = false
-    private var serviceMenuCursorIndex = 1
+     private var lightingTargetMainEnabled = true
+     private var wallBevelDebug = false
+     private var sceneBrightness = SceneBrightness.HIGH
+     private var frightenedAmbientShiftEnabled = true
+     private var enhancedPacAuraEnabled = true
+     private var enhancedGhostLightsEnabled = true
+     private var frightenedParticleTrailEnabled = true
+     private var ambientDustEnabled = true
+     private var enhancedGhostExplosionsEnabled = true
+     private var levelWinConfettiEnabled = true
+     private var nativeFogEnabled = false
+     private var nativeFogIntensity = 15f
+     private var fogOfWarEnabled = false
+     private var dynamicFrightenedBloomEnabled = true
+     private var serviceMenuOpen = false
+     private var serviceMenuCursorIndex = 1
      private var bootTestHold = false
      private var lightingSystem: DirectLightingSystem? = null
     private var boardBacklight: Lamp? = null
@@ -605,16 +616,82 @@ class PacmanGame : PulseEngineGame() {
             getter = { geometryTestOverlayEnabled },
             setter = { value -> geometryTestOverlayEnabled = value },
         ),
-        MenuItem(
-            label = "Light Target Main",
-            type = MenuItemType.Toggle,
-            getter = { lightingTargetMainEnabled },
-            setter = { value ->
-                lightingTargetMainEnabled = value
-                lightingSystem?.targetSurfaces = if (lightingTargetMainEnabled) "main" else ""
-            },
-        ),
-    )
+         MenuItem(
+             label = "Light Target Main",
+             type = MenuItemType.Toggle,
+             getter = { lightingTargetMainEnabled },
+             setter = { value ->
+                 lightingTargetMainEnabled = value
+                 lightingSystem?.targetSurfaces = if (lightingTargetMainEnabled) "main" else ""
+             },
+         ),
+         MenuItem(
+             label = "── Visual Effects ──",
+             type = MenuItemType.Header,
+         ),
+         MenuItem(
+             label = "Frightened Ambient Shift",
+             type = MenuItemType.Toggle,
+             getter = { frightenedAmbientShiftEnabled },
+             setter = { value -> frightenedAmbientShiftEnabled = value },
+         ),
+         MenuItem(
+             label = "Enhanced Pac Aura",
+             type = MenuItemType.Toggle,
+             getter = { enhancedPacAuraEnabled },
+             setter = { value -> enhancedPacAuraEnabled = value },
+         ),
+         MenuItem(
+             label = "Enhanced Ghost Lights",
+             type = MenuItemType.Toggle,
+             getter = { enhancedGhostLightsEnabled },
+             setter = { value -> enhancedGhostLightsEnabled = value },
+         ),
+         MenuItem(
+             label = "Frightened Particle Trail",
+             type = MenuItemType.Toggle,
+             getter = { frightenedParticleTrailEnabled },
+             setter = { value -> frightenedParticleTrailEnabled = value },
+         ),
+         MenuItem(
+             label = "Ambient Dust",
+             type = MenuItemType.Toggle,
+             getter = { ambientDustEnabled },
+             setter = { value -> ambientDustEnabled = value },
+         ),
+         MenuItem(
+             label = "Ghost Color Explosions",
+             type = MenuItemType.Toggle,
+             getter = { enhancedGhostExplosionsEnabled },
+             setter = { value -> enhancedGhostExplosionsEnabled = value },
+         ),
+         MenuItem(
+             label = "Level Win Confetti",
+             type = MenuItemType.Toggle,
+             getter = { levelWinConfettiEnabled },
+             setter = { value -> levelWinConfettiEnabled = value },
+         ),
+         MenuItem(
+             label = "Fog of War",
+             type = MenuItemType.Toggle,
+             getter = { fogOfWarEnabled },
+             setter = { value -> fogOfWarEnabled = value },
+         ),
+         MenuItem(
+             label = "Frightened Bloom Boost",
+             type = MenuItemType.Toggle,
+             getter = { dynamicFrightenedBloomEnabled },
+             setter = { value -> dynamicFrightenedBloomEnabled = value },
+         ),
+         MenuItem(
+             label = "Native Fog",
+             type = MenuItemType.Slider,
+             getter = { nativeFogIntensity },
+             sliderSetter = { delta ->
+                 nativeFogIntensity = (nativeFogIntensity + delta * 10f).coerceIn(0f, 100f)
+             },
+         ),
+     )
 
     private fun handleServiceMenuInput() {
         if (engine.input.wasClicked(Key.UP)) {
@@ -1419,22 +1496,23 @@ class PacmanGame : PulseEngineGame() {
         }
     }
 
-    private fun updateParticles(dt: Float) {
-        val it = particles.iterator()
-        while (it.hasNext()) {
-            val p = it.next()
-            p.life -= dt
-            if (p.life <= 0f) {
-                it.remove()
-                continue
-            }
-            p.x += p.vx * dt
-            p.y += p.vy * dt
-            p.vx *= 0.985f
-            p.vy = p.vy * 0.985f + 5f * dt
-            p.size *= 0.992f
-        }
-    }
+     private fun updateParticles(dt: Float) {
+         val it = particles.iterator()
+         while (it.hasNext()) {
+             val p = it.next()
+             p.life -= dt
+             if (p.life <= 0f) {
+                 it.remove()
+                 continue
+             }
+             p.x += p.vx * dt
+             p.y += p.vy * dt
+             p.vx *= 0.985f
+             p.vy = p.vy * 0.985f + 5f * dt
+             p.size *= 0.992f
+         }
+         while (particles.size > MAX_PARTICLES) particles.removeFirst()
+     }
 
     private fun emitBurst(
         x: Float,
@@ -2151,9 +2229,9 @@ class PacmanGame : PulseEngineGame() {
         s.setDrawColor(0f, 1f, 1f, 1f)
         s.drawText("SERVICE MENU", centerX, titleY, fontSize = 48f, xOrigin = 0.5f, yOrigin = 0.5f)
 
-        val startY = 140f
-        val lineHeight = 28f
-        var yOffset = startY
+         val startY = 140f
+         val lineHeight = 22f
+         var yOffset = startY
 
         for (i in menuItems.indices) {
             val item = menuItems[i]
@@ -2570,11 +2648,12 @@ class PacmanGame : PulseEngineGame() {
     )
 
      companion object {
-         private const val CRT_EFFECT_NAME = "pacman_crt"
-         private const val UI_SURFACE_NAME = "pacman_ui"
-         private const val SCANLINE_EFFECT_NAME = "pacman_scanline"
-         private const val BLOOM_EFFECT_NAME = "pacman_bloom"
-     }
+          private const val MAX_PARTICLES = 300
+          private const val CRT_EFFECT_NAME = "pacman_crt"
+          private const val UI_SURFACE_NAME = "pacman_ui"
+          private const val SCANLINE_EFFECT_NAME = "pacman_scanline"
+          private const val BLOOM_EFFECT_NAME = "pacman_bloom"
+      }
 }
 
 private class MazeOccluder : Box(), DirectLightOccluder {
