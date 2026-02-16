@@ -60,3 +60,44 @@
 - `./gradlew build` completed successfully
 - Zero compilation errors
 - Code integrates cleanly with existing lighting system
+
+## Task 2: Enhanced Pac-Man Aura - Implementation Complete
+
+### Implementation Details
+
+1. **Conditional Aura Enhancement**: Modified the `pacAuraLight?.apply` block (lines 2009-2021) to add conditional logic based on the `enhancedPacAuraEnabled` toggle that was added in Task 0.
+
+2. **Enhanced Mode Values** (when `enhancedPacAuraEnabled = true`):
+   - radius: 320f (up from 220f, +45% increase)
+   - size: 44f (up from 34f, +29% increase)
+   - intensity: 0.78f + pulse * 0.22f (base increased from 0.58f, pulse range reduced from 0.32f)
+   - Effect: Larger, brighter aura that dominates the lighting environment
+
+3. **Original Mode Values** (when `enhancedPacAuraEnabled = false`):
+   - radius: 220f (original)
+   - size: 34f (original)
+   - intensity: 0.58f + pulse * 0.32f (original formula)
+   - Effect: Subtle aura with more pulsing variation
+
+4. **Proportional Scaling**: Size scales proportionally with radius:
+   - Original ratio: 34/220 = 0.1545
+   - Enhanced ratio: 44/320 = 0.1375
+   - Difference: ~11% (acceptable for visual consistency)
+
+5. **Intensity Boost Strategy**: Enhanced mode uses higher base intensity (0.78f vs 0.58f) with smaller pulse range (0.22f vs 0.32f), creating a more stable, dominant light source rather than a pulsing one.
+
+6. **Preserved Properties**: 
+   - Color remains yellow (unchanged)
+   - Light TYPE remains RADIAL (unchanged)
+   - Shadow TYPE remains SOFT (unchanged)
+   - Position updates (x, y) remain unchanged
+   - Conditional on `auraLightsEnabled` toggle preserved
+
+### Build Verification
+- `./gradlew build` completed successfully in 7 seconds
+- Zero compilation errors
+- All 6 actionable tasks executed successfully
+- Code integrates cleanly with existing lighting system
+
+### Design Rationale
+The enhanced aura creates a "fog of war" effect where Pac-Man's light becomes more dominant, improving visibility around the player character. This supports the visual hierarchy and gameplay clarity, especially when combined with other visual enhancements like fog effects (Task 10).

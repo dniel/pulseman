@@ -379,7 +379,7 @@ Task 11: Dynamic Bloom During Frightened
 
 ---
 
-- [ ] 2. Enhanced Pac-Man Aura
+- [x] 2. Enhanced Pac-Man Aura
 
   **What to do**:
   1. In `syncSceneLights()` where pac-man aura is updated (line ~1927-1934): modify the intensity and radius based on the `enhancedPacAuraEnabled` toggle:

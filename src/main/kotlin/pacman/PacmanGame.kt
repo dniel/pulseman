@@ -2009,7 +2009,15 @@ class PacmanGame : PulseEngineGame() {
         pacAuraLight?.apply {
             x = pacPixelX()
             y = pacPixelY()
-            intensity = if (auraLightsEnabled) 0.58f + pulse * 0.32f else 0f
+            if (enhancedPacAuraEnabled) {
+                radius = 320f
+                size = 44f
+                intensity = if (auraLightsEnabled) 0.78f + pulse * 0.22f else 0f
+            } else {
+                radius = 220f
+                size = 34f
+                intensity = if (auraLightsEnabled) 0.58f + pulse * 0.32f else 0f
+            }
         }
 
         fruitAuraLight?.apply {
