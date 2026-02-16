@@ -83,7 +83,7 @@ class PacmanGame : PulseEngineGame() {
      private var enhancedGhostExplosionsEnabled = true
      private var levelWinConfettiEnabled = true
      private var nativeFogEnabled = false
-     private var nativeFogIntensity = 15f
+     private var nativeFogIntensity = 0.5f
      private var fogOfWarEnabled = false
      private var dynamicFrightenedBloomEnabled = true
      private var serviceMenuOpen = false
@@ -99,9 +99,10 @@ class PacmanGame : PulseEngineGame() {
     private val eatenGhostConeLights = mutableMapOf<GhostType, LightPair>()
     private val powerPelletConeLights = mutableMapOf<Pair<Int, Int>, LightPair>()
 
-    private val menuItems: List<MenuItem> by lazy { buildMenuItems() }
+     private val menuItems: List<MenuItem> by lazy { buildMenuItems() }
+     private lateinit var soundManager: SoundManager
 
-    private var dotsEatenThisLevel = 0
+     private var dotsEatenThisLevel = 0
     private var fruitSpawn70Done = false
     private var fruitSpawn170Done = false
     private var activeFruit: FruitState? = null
@@ -136,19 +137,20 @@ class PacmanGame : PulseEngineGame() {
         GhostMode.CHASE to Float.MAX_VALUE,
     )
 
-    override fun onCreate() {
-        engine.config.gameName = "PulsDniel Pacman"
-        engine.config.fixedTickRate = 60f
-        engine.config.targetFps = 60
-        engine.console.runScript("init.pes")
-        engine.console.runScript("init-dev.pes")
-         setupUiSurface()
-         configurePostEffects()
-        loadGameSounds()
-        highScore = engine.data.loadObject<HighScoreData>("highscore.json")?.score ?: 0
-        resetGame()
-        setupSceneLighting()
-    }
+     override fun onCreate() {
+         engine.config.gameName = "PulsDniel Pacman"
+         engine.config.fixedTickRate = 60f
+         engine.config.targetFps = 60
+         engine.console.runScript("init.pes")
+         engine.console.runScript("init-dev.pes")
+          setupUiSurface()
+          configurePostEffects()
+         soundManager = SoundManager(engine)
+         soundManager.loadAll()
+         highScore = engine.data.loadObject<HighScoreData>("highscore.json")?.score ?: 0
+         resetGame()
+         setupSceneLighting()
+     }
 
     override fun onDestroy() {
         engine.data.saveObject(HighScoreData(highScore), "highscore.json")
@@ -690,7 +692,7 @@ class PacmanGame : PulseEngineGame() {
              type = MenuItemType.Slider,
              getter = { nativeFogIntensity },
              sliderSetter = { delta ->
-                 nativeFogIntensity = (nativeFogIntensity + delta * 10f).coerceIn(0f, 100f)
+                 nativeFogIntensity = (nativeFogIntensity + delta * 0.1f).coerceIn(0f, 1f)
              },
          ),
      )
@@ -789,6 +791,7 @@ class PacmanGame : PulseEngineGame() {
                  attractDemoTimer -= dt
                  updateAttractPacmanControl()
                  updatePacman(dt)
+                 emitPacTrail()
                  emitFrightenedTrail()
                  emitAmbientDust(dt)
                  updateGhosts(dt)
@@ -820,6 +823,7 @@ class PacmanGame : PulseEngineGame() {
 
              GamePhase.PLAYING -> {
                  updatePacman(dt)
+                 emitPacTrail()
                  emitFrightenedTrail()
                  emitAmbientDust(dt)
                  updateGhosts(dt)
@@ -1005,11 +1009,11 @@ class PacmanGame : PulseEngineGame() {
         setLightingEnabledState(false)
     }
 
-    private fun beginReadyPhase() {
-        setLightingEnabledState(true)
-        phase = GamePhase.READY
-        readyTimer = 2f
-        tryPlaySound("pacman_beginning")
+     private fun beginReadyPhase() {
+         setLightingEnabledState(true)
+         phase = GamePhase.READY
+         readyTimer = 2f
+         soundManager.play("pacman_beginning")
     }
 
      private fun startLevelState(resetDots: Boolean) {
@@ -1030,11 +1034,11 @@ class PacmanGame : PulseEngineGame() {
     }
 
     private fun startNextLevelTransition() {
-        level++
-        startLevelState(resetDots = true)
-        phase = GamePhase.LEVEL_TRANSITION
-        levelTransitionTimer = 1.5f
-        tryPlaySound("pacman_intermission")
+         level++
+         startLevelState(resetDots = true)
+         phase = GamePhase.LEVEL_TRANSITION
+         levelTransitionTimer = 1.5f
+         soundManager.play("pacman_intermission")
     }
 
     private fun resetPositions() {
@@ -1166,21 +1170,21 @@ class PacmanGame : PulseEngineGame() {
         when (Maze.grid[row][col]) {
             Maze.DOT -> {
                 Maze.grid[row][col] = Maze.EMPTY
-                dotsEatenThisLevel++
-                addScore(10)
-                maybeSpawnFruit()
-                emitDotParticles(Maze.centerX(col), Maze.centerY(row))
-                tryPlaySound("pacman_chomp")
+                 dotsEatenThisLevel++
+                 addScore(10)
+                 maybeSpawnFruit()
+                 emitDotParticles(Maze.centerX(col), Maze.centerY(row))
+                 soundManager.play("pacman_chomp")
             }
 
             Maze.POWER -> {
                 Maze.grid[row][col] = Maze.EMPTY
                 dotsEatenThisLevel++
-                addScore(50)
-                maybeSpawnFruit()
-                emitPowerPelletParticles(Maze.centerX(col), Maze.centerY(row))
-                activateFrightened()
-                tryPlaySound("pacman_beginning")
+                 addScore(50)
+                 maybeSpawnFruit()
+                 emitPowerPelletParticles(Maze.centerX(col), Maze.centerY(row))
+                 activateFrightened()
+                 soundManager.play("pacman_beginning")
             }
         }
     }
@@ -1219,11 +1223,11 @@ class PacmanGame : PulseEngineGame() {
     private fun checkFruitCollision() {
         val fruit = activeFruit ?: return
         if (pacGridX == fruit.col && pacGridY == fruit.row) {
-            addScore(fruit.type.score)
-            emitFruitParticles(Maze.centerX(fruit.col), Maze.centerY(fruit.row), fruit.type)
-            addScorePopup(Maze.centerX(fruit.col), Maze.centerY(fruit.row), fruit.type.score.toString())
-            activeFruit = null
-            tryPlaySound("pacman_eatfruit")
+             addScore(fruit.type.score)
+             emitFruitParticles(Maze.centerX(fruit.col), Maze.centerY(fruit.row), fruit.type)
+             addScorePopup(Maze.centerX(fruit.col), Maze.centerY(fruit.row), fruit.type.score.toString())
+             activeFruit = null
+             soundManager.play("pacman_eatfruit")
         }
     }
 
@@ -1410,17 +1414,17 @@ class PacmanGame : PulseEngineGame() {
                     GhostMode.FRIGHTENED -> {
                         ghost.mode = GhostMode.EATEN
                         pelletsEatenForGhostScore++
-                        val ghostScore = 200 * (1 shl (pelletsEatenForGhostScore - 1).coerceAtMost(3))
-                        addScore(ghostScore)
-                        emitGhostEatenParticles(ghostPixelX(ghost), ghostPixelY(ghost), ghost.type)
-                        addScorePopup(ghostPixelX(ghost), ghostPixelY(ghost) - 8f, ghostScore.toString())
-                        tryPlaySound("pacman_eatghost")
+                         val ghostScore = 200 * (1 shl (pelletsEatenForGhostScore - 1).coerceAtMost(3))
+                         addScore(ghostScore)
+                         emitGhostEatenParticles(ghostPixelX(ghost), ghostPixelY(ghost), ghost.type)
+                         addScorePopup(ghostPixelX(ghost), ghostPixelY(ghost) - 8f, ghostScore.toString())
+                         soundManager.play("pacman_eatghost")
                     }
 
-                    GhostMode.EATEN -> {}
-                    else -> {
-                        emitDeathParticles(pacPixelX(), pacPixelY())
-                        tryPlaySound("pacman_death")
+                     GhostMode.EATEN -> {}
+                     else -> {
+                         emitDeathParticles(pacPixelX(), pacPixelY())
+                         soundManager.play("pacman_death")
                         if (phase == GamePhase.ATTRACT_DEMO) {
                             attractDemoGameOverTimer = 1.25f
                             resetPositions()
@@ -1433,52 +1437,9 @@ class PacmanGame : PulseEngineGame() {
                 }
             }
         }
-    }
+     }
 
-    private fun loadGameSounds() {
-        listOf(
-            "pacman_beginning",
-            "pacman_chomp",
-            "pacman_death",
-            "pacman_eatfruit",
-            "pacman_eatghost",
-            "pacman_extrapac",
-            "pacman_intermission",
-        ).forEach(::loadSoundAsset)
-    }
-
-    private fun loadSoundAsset(name: String) {
-        val filename = "$name.ogg"
-        val path = resolveSoundPath(filename) ?: return
-        engine.asset.load(Sound(path, name))
-    }
-
-    private fun resolveSoundPath(filename: String): String? {
-        listOf(
-            "src/main/resources/$filename",
-            "sounds/$filename",
-            filename,
-        ).map(::File)
-            .firstOrNull { it.isFile }
-            ?.absolutePath
-            ?.let { return it }
-
-        val resource = javaClass.classLoader.getResource(filename) ?: return null
-        return if (resource.protocol == "file") {
-            File(resource.toURI()).absolutePath
-        } else {
-            val tempFile = File.createTempFile("pulsdniel-sound-", "-$filename")
-            tempFile.deleteOnExit()
-            resource.openStream().use { input ->
-                tempFile.outputStream().use { output ->
-                    input.copyTo(output)
-                }
-            }
-            tempFile.absolutePath
-        }
-    }
-
-    private fun updateMouthAnimation(dt: Float) {
+     private fun updateMouthAnimation(dt: Float) {
         val speed = 12.0f * gameSpeedScale
         if (mouthOpening) {
             mouthAngle += speed * dt
@@ -1623,19 +1584,34 @@ class PacmanGame : PulseEngineGame() {
         )
     }
 
+     private fun emitPacTrail() {
+         if (phase != GamePhase.PLAYING && phase != GamePhase.ATTRACT_DEMO) return
+         if (frightenedTimer > 0f) return // Frightened trail takes over
+         
+         emitBurst(
+             x = pacPixelX(),
+             y = pacPixelY(),
+             count = 1,
+             speedMin = 8f, speedMax = 20f,
+             lifeMin = 0.2f, lifeMax = 0.5f,
+             sizeMin = 1.4f, sizeMax = 2.8f,
+             red = 1f, green = 0.9f, blue = 0.1f,
+         )
+     }
+
      private fun emitFrightenedTrail() {
          if (!frightenedParticleTrailEnabled) return
          if (frightenedTimer <= 0f) return
          if (phase != GamePhase.PLAYING && phase != GamePhase.ATTRACT_DEMO) return
          
-         val count = if (Random.nextFloat() > 0.4f) 2 else 1
+         val count = if (Random.nextFloat() > 0.4f) 3 else 2
          emitBurst(
              x = pacPixelX(),
              y = pacPixelY(),
              count = count,
-             speedMin = 8f, speedMax = 25f,
-             lifeMin = 0.3f, lifeMax = 0.6f,
-             sizeMin = 1.2f, sizeMax = 2.4f,
+             speedMin = 15f, speedMax = 45f,
+             lifeMin = 0.4f, lifeMax = 0.8f,
+             sizeMin = 2.0f, sizeMax = 4.0f,
              red = 0.3f, green = 0.5f, blue = 1f,
          )
      }
@@ -1702,11 +1678,7 @@ class PacmanGame : PulseEngineGame() {
         scorePopups += ScorePopup(x = x, y = y, text = text, timer = 1f)
     }
 
-    private fun tryPlaySound(name: String) {
-        engine.audio.playSound(name)
-    }
-
-    private fun renderMaze(s: Surface) {
+     private fun renderMaze(s: Surface) {
         val wallColor = floatArrayOf(0.62f, 0.88f, 1f)
         val thickness = if (wallThinOutlineMode) 1f else 3f
         val wallBase = when {
@@ -2084,7 +2056,7 @@ class PacmanGame : PulseEngineGame() {
 
          // Native fog control
          lightingSystem?.apply {
-             if (nativeFogEnabled && playfieldLightsEnabled) {
+              if (nativeFogIntensity > 0f && playfieldLightsEnabled) {
                  fogIntensity = nativeFogIntensity
                  fogTurbulence = 1.5f
                  fogScale = 0.3f
@@ -2351,10 +2323,10 @@ class PacmanGame : PulseEngineGame() {
         val titleY = 60f
 
         s.setDrawColor(0f, 1f, 1f, 1f)
-        s.drawText("SERVICE MENU", centerX, titleY, fontSize = 48f, xOrigin = 0.5f, yOrigin = 0.5f)
+        s.drawText("SERVICE MENU", centerX, titleY, fontSize = 38f, xOrigin = 0.5f, yOrigin = 0.5f)
 
-         val startY = 140f
-         val lineHeight = 22f
+         val startY = 100f
+         val lineHeight = 18f
          var yOffset = startY
 
         for (i in menuItems.indices) {
@@ -2364,7 +2336,7 @@ class PacmanGame : PulseEngineGame() {
             when (item.type) {
                 MenuItemType.Header -> {
                     s.setDrawColor(1f, 0.8f, 0f, 1f)
-                    s.drawText(item.label, centerX - 200f, yOffset, fontSize = 24f)
+                    s.drawText(item.label, centerX - 200f, yOffset, fontSize = 18f)
                 }
                 MenuItemType.Toggle -> {
                     val value = item.getter?.invoke() as? Boolean ?: false
@@ -2372,10 +2344,10 @@ class PacmanGame : PulseEngineGame() {
                     val prefix = if (isSelected) "> " else "  "
 
                     s.setDrawColor(0.9f, 0.9f, 0.9f, 1f)
-                    s.drawText("$prefix${item.label}", centerX - 200f, yOffset, fontSize = 20f)
+                    s.drawText("$prefix${item.label}", centerX - 200f, yOffset, fontSize = 16f)
 
-                    s.setDrawColor(if (value) 0f else 0.5f, if (value) 1f else 0.5f, 0f, 1f)
-                    s.drawText(valueText, centerX + 200f, yOffset, fontSize = 20f)
+                     s.setDrawColor(if (value) 0f else 0.5f, if (value) 1f else 0.5f, 0f, 1f)
+                     s.drawText(valueText, centerX + 200f, yOffset, fontSize = 16f)
                 }
                 MenuItemType.Slider -> {
                     val value = item.getter?.invoke() as? Float ?: 0f
@@ -2383,10 +2355,10 @@ class PacmanGame : PulseEngineGame() {
                     val prefix = if (isSelected) "> " else "  "
 
                     s.setDrawColor(0.9f, 0.9f, 0.9f, 1f)
-                    s.drawText("$prefix${item.label}", centerX - 200f, yOffset, fontSize = 20f)
+                    s.drawText("$prefix${item.label}", centerX - 200f, yOffset, fontSize = 16f)
 
-                    s.setDrawColor(0f, 0.8f, 1f, 1f)
-                    s.drawText(valueText, centerX + 200f, yOffset, fontSize = 20f)
+                     s.setDrawColor(0f, 0.8f, 1f, 1f)
+                     s.drawText(valueText, centerX + 200f, yOffset, fontSize = 16f)
                 }
                 MenuItemType.Cycle -> {
                     val value = item.getter?.invoke()
@@ -2397,10 +2369,10 @@ class PacmanGame : PulseEngineGame() {
                     val prefix = if (isSelected) "> " else "  "
 
                     s.setDrawColor(0.9f, 0.9f, 0.9f, 1f)
-                    s.drawText("$prefix${item.label}", centerX - 200f, yOffset, fontSize = 20f)
+                    s.drawText("$prefix${item.label}", centerX - 200f, yOffset, fontSize = 16f)
 
-                    s.setDrawColor(1f, 0.7f, 0f, 1f)
-                    s.drawText(valueText, centerX + 200f, yOffset, fontSize = 20f)
+                     s.setDrawColor(1f, 0.7f, 0f, 1f)
+                     s.drawText(valueText, centerX + 200f, yOffset, fontSize = 16f)
                 }
             }
 
@@ -2412,7 +2384,7 @@ class PacmanGame : PulseEngineGame() {
             "UP/DOWN: Navigate   SPACE: Toggle   LEFT/RIGHT: Adjust   S: Close",
             centerX,
             engine.window.height - 40f,
-            fontSize = 18f,
+            fontSize = 14f,
             xOrigin = 0.5f,
             yOrigin = 0.5f,
         )
