@@ -878,7 +878,7 @@ Task 11: Dynamic Bloom During Frightened
 
 ---
 
-- [ ] 8. Level Win Confetti
+- [x] 8. Level Win Confetti
 
   **What to do**:
   1. Create a new function `emitLevelWinConfetti()`:

@@ -825,10 +825,11 @@ class PacmanGame : PulseEngineGame() {
                 updateGhostModes(dt)
                 updateFruit(dt)
                 checkCollisions()
-                if (Maze.dotsRemaining() == 0) {
-                    phase = GamePhase.WON
-                    wonTimer = 1.5f
-                }
+                 if (Maze.dotsRemaining() == 0) {
+                     phase = GamePhase.WON
+                     wonTimer = 1.5f
+                     emitLevelWinConfetti()
+                 }
             }
 
             GamePhase.DYING -> {
@@ -1660,6 +1661,26 @@ class PacmanGame : PulseEngineGame() {
              sizeMin = 0.8f, sizeMax = 1.4f,
              red = 0.6f, green = 0.6f, blue = 0.7f,
          )
+     }
+
+     private fun emitLevelWinConfetti() {
+         if (!levelWinConfettiEnabled) return
+         
+         val cx = pacPixelX()
+         val cy = pacPixelY()
+         
+         val colors = listOf(
+             Triple(1f, 0.2f, 0.2f),
+             Triple(0.2f, 1f, 0.3f),
+             Triple(0.3f, 0.5f, 1f),
+             Triple(1f, 1f, 0.2f),
+             Triple(1f, 0.5f, 1f),
+         )
+         for ((r, g, b) in colors) {
+             emitBurst(cx, cy, count = 10, speedMin = 60f, speedMax = 200f,
+                 lifeMin = 0.5f, lifeMax = 1.2f, sizeMin = 1.8f, sizeMax = 4f,
+                 red = r, green = g, blue = b)
+         }
      }
 
      private fun pacPixelX(): Float = Maze.centerX(pacGridX) + pacDir.dx * pacProgress * Maze.TILE
