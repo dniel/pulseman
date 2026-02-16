@@ -798,7 +798,7 @@ Task 11: Dynamic Bloom During Frightened
 
 ---
 
-- [ ] 7. Ghost-Colored Eat Explosions
+- [x] 7. Ghost-Colored Eat Explosions
 
   **What to do**:
   1. Change `emitGhostEatenParticles()` signature to accept ghost type:

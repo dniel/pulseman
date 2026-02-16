@@ -1410,7 +1410,7 @@ class PacmanGame : PulseEngineGame() {
                         pelletsEatenForGhostScore++
                         val ghostScore = 200 * (1 shl (pelletsEatenForGhostScore - 1).coerceAtMost(3))
                         addScore(ghostScore)
-                        emitGhostEatenParticles(ghostPixelX(ghost), ghostPixelY(ghost))
+                        emitGhostEatenParticles(ghostPixelX(ghost), ghostPixelY(ghost), ghost.type)
                         addScorePopup(ghostPixelX(ghost), ghostPixelY(ghost) - 8f, ghostScore.toString())
                         tryPlaySound("pacman_eatghost")
                     }
@@ -1563,8 +1563,13 @@ class PacmanGame : PulseEngineGame() {
         emitBurst(x, y, count = 18, speedMin = 30f, speedMax = 92f, lifeMin = 0.32f, lifeMax = 0.62f, sizeMin = 1.8f, sizeMax = 4.2f, red = 1f, green = 0.98f, blue = 0.7f)
     }
 
-    private fun emitGhostEatenParticles(x: Float, y: Float) {
-        emitBurst(x, y, count = 22, speedMin = 48f, speedMax = 130f, lifeMin = 0.35f, lifeMax = 0.85f, sizeMin = 2f, sizeMax = 4.8f, red = 1f, green = 1f, blue = 1f)
+    private fun emitGhostEatenParticles(x: Float, y: Float, ghostType: GhostType) {
+        if (!enhancedGhostExplosionsEnabled) {
+            emitBurst(x, y, count = 22, speedMin = 48f, speedMax = 130f, lifeMin = 0.35f, lifeMax = 0.85f, sizeMin = 2f, sizeMax = 4.8f, red = 1f, green = 1f, blue = 1f)
+            return
+        }
+        val color = ghostAuraColor(ghostType)
+        emitBurst(x, y, count = 28, speedMin = 48f, speedMax = 140f, lifeMin = 0.35f, lifeMax = 0.9f, sizeMin = 2f, sizeMax = 5.2f, red = color.red, green = color.green, blue = color.blue)
     }
 
     private fun emitDeathParticles(x: Float, y: Float) {
