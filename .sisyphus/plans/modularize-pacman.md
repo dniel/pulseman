@@ -182,7 +182,7 @@
 
 ---
 
-- [ ] 5. Extract FruitManager
+- [x] 5. Extract FruitManager
 
   **What to do**:
   1. Create `src/main/kotlin/pacman/FruitManager.kt`
