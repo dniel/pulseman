@@ -92,3 +92,18 @@ Extracted managers should NOT hold references back to PacmanGame. Instead:
 - Example: `emitPacTrail(x, y, phase, frightenedTimer)` instead of `emitPacTrail()` that reads from game
 - Benefit: Managers become testable in isolation
 
+### Task 5: FruitManager
+- **Feasibility**: 95% (clean boundaries, all dependencies already extracted)
+- **Functions moved**: 4 (maybeSpawnFruit, spawnFruit, updateFruit, checkFruitCollision)
+- **State moved**: activeFruit, fruitSpawn70Done, fruitSpawn170Done, fruitTypeCycle
+- **State kept in PacmanGame**: `dotsEatenThisLevel` — incremented in `eatDotAt()` (dot eating logic), not fruit logic
+- **Signature changes**:
+  - `maybeSpawnFruit(dotsEaten: Int, level: Int)` — accepts both counters as parameters
+  - `checkFruitCollision(pacGridX: Int, pacGridY: Int): Boolean` — accepts pac position, returns collision result
+  - `spawnFruit(level: Int)` — private, accepts level for fruit type selection
+- **activeFruit visibility**: `var activeFruit: FruitState? = null` with `private set` — public read for rendering
+- **reset()**: Added `reset()` function called from `startLevelState()` to clear all fruit state
+- **fruitTypeCycle**: Moved entirely to FruitManager (was only used in `spawnFruit`)
+- **ast_grep_replace gotcha**: Tool reported replacements but didn't apply them — had to use Edit tool manually
+- **Result**: 75-line module with complete fruit lifecycle management
+

@@ -90,11 +90,9 @@ class PacmanGame : PulseEngineGame() {
      private lateinit var soundManager: SoundManager
      private lateinit var scoreManager: ScoreManager
      private lateinit var postProcessing: PostProcessingManager
+     private lateinit var fruitManager: FruitManager
 
      private var dotsEatenThisLevel = 0
-    private var fruitSpawn70Done = false
-    private var fruitSpawn170Done = false
-    private var activeFruit: FruitState? = null
 
     private val bootDuration = 5f
     private val startScreenDelay = 8f
@@ -106,17 +104,6 @@ class PacmanGame : PulseEngineGame() {
     private val gameSpeedScale = 0.5f
     private val pacSpeed = 7f * gameSpeedScale
     private val eatenGhostSpeed = 12f * gameSpeedScale
-    private val fruitTypeCycle = listOf(
-        FruitType.CHERRY,
-        FruitType.STRAWBERRY,
-        FruitType.ORANGE,
-        FruitType.APPLE,
-        FruitType.MELON,
-        FruitType.GALAXIAN,
-        FruitType.BELL,
-        FruitType.KEY,
-    )
-
     private val modeSequence = listOf(
         GhostMode.SCATTER to 7f,
         GhostMode.CHASE to 20f,
@@ -139,6 +126,7 @@ class PacmanGame : PulseEngineGame() {
          soundManager.loadAll()
          scoreManager = ScoreManager()
          scoreManager.highScore = engine.data.loadObject<HighScoreData>("highscore.json")?.score ?: 0
+         fruitManager = FruitManager(scoreManager, particleSystem, soundManager)
          resetGame()
          setupSceneLighting()
      }
@@ -686,11 +674,11 @@ class PacmanGame : PulseEngineGame() {
                  particleSystem.emitFrightenedTrail(pacPixelX(), pacPixelY(), phase, frightenedTimer)
                  particleSystem.emitAmbientDust(dt, phase)
                  updateGhosts(dt)
-                updateGhostModes(dt)
-                updateFruit(dt)
-                checkCollisions()
-                if (Maze.dotsRemaining() == 0) {
-                    startLevelState(resetDots = true)
+                 updateGhostModes(dt)
+                 fruitManager.updateFruit(dt)
+                 checkCollisions()
+                 if (Maze.dotsRemaining() == 0) {
+                     startLevelState(resetDots = true)
                 }
                 if (attractDemoTimer <= 0f) {
                     enterStartScreen()
@@ -718,11 +706,11 @@ class PacmanGame : PulseEngineGame() {
                  particleSystem.emitFrightenedTrail(pacPixelX(), pacPixelY(), phase, frightenedTimer)
                  particleSystem.emitAmbientDust(dt, phase)
                  updateGhosts(dt)
-                updateGhostModes(dt)
-                updateFruit(dt)
-                checkCollisions()
-                 if (Maze.dotsRemaining() == 0) {
-                     phase = GamePhase.WON
+                 updateGhostModes(dt)
+                 fruitManager.updateFruit(dt)
+                 checkCollisions()
+                  if (Maze.dotsRemaining() == 0) {
+                      phase = GamePhase.WON
                      wonTimer = 1.5f
                      particleSystem.emitLevelWinConfetti(pacPixelX(), pacPixelY())
                  }
@@ -756,8 +744,8 @@ class PacmanGame : PulseEngineGame() {
             }
 
             GamePhase.GAME_OVER -> {
-                updateFruit(dt)
-                gameOverTimer -= dt
+                 fruitManager.updateFruit(dt)
+                 gameOverTimer -= dt
                 if (gameOverTimer <= 0f) enterStartScreen()
             }
         }
@@ -912,9 +900,7 @@ class PacmanGame : PulseEngineGame() {
          frightenedTimer = 0f
          pelletsEatenForGhostScore = 0
          dotsEatenThisLevel = 0
-         fruitSpawn70Done = false
-         fruitSpawn170Done = false
-         activeFruit = null
+         fruitManager.reset()
          particleSystem.reset()
         ghostReleaseTimers = floatArrayOf(0f, 3f, 6f, 9f).map { max(0f, it - (level - 1) * 0.25f) }.toFloatArray()
         resetPositions()
@@ -971,7 +957,7 @@ class PacmanGame : PulseEngineGame() {
         pacProgress = 0f
 
         eatDotAt(pacGridX, pacGridY)
-        checkFruitCollision()
+        fruitManager.checkFruitCollision(pacGridX, pacGridY)
 
         val canTurn = pacNextDir != Direction.NONE &&
             pacNextDir != pacDir &&
@@ -1059,7 +1045,7 @@ class PacmanGame : PulseEngineGame() {
                  Maze.grid[row][col] = Maze.EMPTY
                   dotsEatenThisLevel++
                   scoreManager.addScore(10)
-                  maybeSpawnFruit()
+                  fruitManager.maybeSpawnFruit(dotsEatenThisLevel, level)
                  particleSystem.emitDotParticles(Maze.centerX(col), Maze.centerY(row))
                  soundManager.play("pacman_chomp")
             }
@@ -1068,55 +1054,13 @@ class PacmanGame : PulseEngineGame() {
                  Maze.grid[row][col] = Maze.EMPTY
                  dotsEatenThisLevel++
                   scoreManager.addScore(50)
-                  maybeSpawnFruit()
+                  fruitManager.maybeSpawnFruit(dotsEatenThisLevel, level)
                  particleSystem.emitPowerPelletParticles(Maze.centerX(col), Maze.centerY(row))
                  activateFrightened()
                  soundManager.play("pacman_beginning")
             }
         }
     }
-
-    private fun maybeSpawnFruit() {
-        if (!fruitSpawn70Done && dotsEatenThisLevel >= 70) {
-            spawnFruit()
-            fruitSpawn70Done = true
-            return
-        }
-        if (!fruitSpawn170Done && dotsEatenThisLevel >= 170) {
-            spawnFruit()
-            fruitSpawn170Done = true
-        }
-    }
-
-    private fun spawnFruit() {
-        if (activeFruit != null) return
-        val fruitType = fruitTypeCycle[(level - 1).mod(fruitTypeCycle.size)]
-        activeFruit = FruitState(
-            type = fruitType,
-            col = 14,
-            row = 16,
-            timer = 10f,
-        )
-    }
-
-    private fun updateFruit(dt: Float) {
-        val fruit = activeFruit ?: return
-        fruit.timer -= dt
-        if (fruit.timer <= 0f) {
-            activeFruit = null
-        }
-    }
-
-     private fun checkFruitCollision() {
-         val fruit = activeFruit ?: return
-         if (pacGridX == fruit.col && pacGridY == fruit.row) {
-              scoreManager.addScore(fruit.type.score)
-              particleSystem.emitFruitParticles(Maze.centerX(fruit.col), Maze.centerY(fruit.row), fruit.type)
-              scoreManager.addPopup(Maze.centerX(fruit.col), Maze.centerY(fruit.row), fruit.type.score.toString())
-              activeFruit = null
-              soundManager.play("pacman_eatfruit")
-         }
-     }
 
     private fun activateFrightened() {
         frightenedTimer = frightenedDurationForLevel()
@@ -1511,7 +1455,7 @@ class PacmanGame : PulseEngineGame() {
         s.setDrawColor(1f, 0.95f, 0.24f, 0.16f + pulse * 0.12f)
         drawFilledCircle(s, pacX, pacY, 16f + pulse * 3f, 18)
 
-        activeFruit?.let {
+        fruitManager.activeFruit?.let {
             val fx = Maze.centerX(it.col)
             val fy = Maze.centerY(it.row)
             s.setDrawColor(1f, 0.55f, 0.2f, 0.16f + pulse * 0.12f)
@@ -1617,7 +1561,7 @@ class PacmanGame : PulseEngineGame() {
     }
 
     private fun renderFruit(s: Surface) {
-        val fruit = activeFruit ?: return
+        val fruit = fruitManager.activeFruit ?: return
         val cx = Maze.centerX(fruit.col)
         val cy = Maze.centerY(fruit.row)
 
@@ -1748,7 +1692,7 @@ class PacmanGame : PulseEngineGame() {
          }
 
          fruitAuraLight?.apply {
-            val fruit = activeFruit
+            val fruit = fruitManager.activeFruit
             if (fruit == null) {
                 intensity = 0f
                 fruitConeLights?.let {

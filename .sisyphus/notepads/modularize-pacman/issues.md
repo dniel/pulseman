@@ -49,3 +49,14 @@ fun updateBloomEffectSettings(
 
 ---
 
+## Issue 5: ast_grep_replace Silent Failure
+**Task**: FruitManager extraction (Task 5)
+
+**Problem**: `ast_grep_replace` reported "3 replacement(s)" for `updateFruit(dt)` → `fruitManager.updateFruit(dt)` but the file was not actually modified. Same for `activeFruit` → `fruitManager.activeFruit`.
+
+**Resolution**: Used Edit tool manually with unique surrounding context for each occurrence.
+
+**Lesson**: Always verify ast_grep_replace results with a grep after applying. Don't trust the reported count — check the actual file content.
+
+---
+
