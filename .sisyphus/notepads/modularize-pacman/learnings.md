@@ -140,3 +140,16 @@ Extracted managers should NOT hold references back to PacmanGame. Instead:
 - **frightenedTimer references updated**: 7 call sites across buildMenuItems (2), onFixedUpdate ATTRACT_DEMO (2), onFixedUpdate PLAYING (2), onRender (1), setGhostColor (2)
 - **ghosts references updated**: 6 locations (updateAttractPacmanControl, checkCollisions, renderEntityBloomHalos, renderGhosts, syncSceneLights anyGhostFrightened check, syncSceneLights ghost lights loop)
 - **Result**: 230-line module. Build passed first attempt with zero errors.
+
+### Task 8: LightingManager
+- **Feasibility**: 75% (most coupled extraction — 15+ state vars, 180-line syncSceneLights, 10+ service menu items)
+- **Functions moved**: 11 (setupSceneLighting, addBoardBacklight, createAuraLights, createAuraLamp, createConePair, ghostAuraColor, cycleSceneBrightness, sceneBrightnessAmbient, createMazeOccluders, setLightingEnabledState, syncSceneLights)
+- **State moved**: 20 variables (lightingEnabled, entityHaloEnabled, boardBacklightEnabled, auraLightsEnabled, lightingTargetMainEnabled, sceneBrightness, frightenedAmbientShiftEnabled, enhancedPacAuraEnabled, enhancedGhostLightsEnabled, nativeFogEnabled, nativeFogIntensity, fogOfWarEnabled, lightingSystem, boardBacklight, pacAuraLight, fruitAuraLight, fruitConeLights, ghostAuraLights, eatenGhostConeLights, powerPelletAuraLights, powerPelletConeLights)
+- **New data classes**: LightPair (moved from PacmanGame.kt), LightingSnapshot (new — snapshot of game state for syncSceneLights)
+- **MazeOccluder**: Renamed to LightingMazeOccluder in LightingManager.kt, removed from PacmanGame.kt
+- **syncSceneLights() snapshot pattern**: Changed from reading global state to accepting LightingSnapshot parameter. Ghost pixel position computed by duplicating ghostPixelX/Y helpers in LightingManager (private methods)
+- **LightingTargetMain**: Added setLightingTargetMain(value) method to encapsulate both state update AND lightingSystem?.targetSurfaces side effect
+- **Initial sync**: setupSceneLighting() calls syncSceneLights() with a BOOT-phase snapshot — all lights turn off immediately (playfieldLightsEnabled = false for BOOT phase)
+- **Service menu items updated**: 10 items (lightingEnabled, entityHaloEnabled, boardBacklightEnabled, auraLightsEnabled, sceneBrightness, lightingTargetMainEnabled, frightenedAmbientShiftEnabled, enhancedPacAuraEnabled, enhancedGhostLightsEnabled, fogOfWarEnabled, nativeFogIntensity)
+- **Critical bug**: Removed `Lamp` import from PacmanGame.kt but `LightPair` still referenced `Lamp` there — caused 30+ "Unresolved reference" errors on LightPair.first/second properties. Fix: moved `LightPair` to LightingManager.kt and deleted from PacmanGame.kt
+- **Result**: 460-line LightingManager.kt. Build passed after fixing import issue.

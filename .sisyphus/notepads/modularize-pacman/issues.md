@@ -82,3 +82,16 @@ fun updateBloomEffectSettings(
 
 ---
 
+## Issue 8: Data Class Import Cascade Failure
+**Task**: LightingManager extraction (Task 8)
+
+**Problem**: Removed `Lamp` import from PacmanGame.kt when extracting all lighting code. But `LightPair` data class still referenced `Lamp` and remained in PacmanGame.kt. This caused `LightPair.first` and `LightPair.second` to have unknown type, which cascaded to 30+ "Unresolved reference 'intensity'/'x'/'y'/'rotation'" errors in LightingManager.kt when accessing `it.first.intensity` etc.
+
+**Resolution**: Moved `LightPair` from PacmanGame.kt to LightingManager.kt (where Lamp import was present). Deleted from PacmanGame.kt.
+
+**Lesson**: When removing imports from a file during extraction, grep ALL uses of the imported type in the REMAINING code — not just the functions being moved. Data classes that use the imported type must also be moved or the import kept.
+
+---
+
+---
+
