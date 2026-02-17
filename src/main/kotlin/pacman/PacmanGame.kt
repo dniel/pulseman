@@ -26,8 +26,7 @@ class PacmanGame : PulseEngineGame() {
     private val gameSpeedScale = 0.5f
     private val pacSpeed = 7f * gameSpeedScale
     private val pacman = PacmanController(pacSpeed, gameSpeedScale)
-
-     private val ghosts = mutableListOf<GhostState>()
+    private val ghostAI = GhostAISystem(pacman, gameSpeedScale)
 
      private var lives = 3
      private var level = 1
@@ -43,10 +42,6 @@ class PacmanGame : PulseEngineGame() {
     private var readyTimer = 2f
     private var wonTimer = 0f
     private var levelTransitionTimer = 0f
-    private var frightenedTimer = 0f
-    private var ghostModeTimer = 0f
-    private var ghostModeIndex = 0
-     private var currentGhostMode = GhostMode.SCATTER
      private var deathAnimTimer = 0f
      private var uiPulseTime = 0f
     private var lightingEnabled = true
@@ -94,18 +89,6 @@ class PacmanGame : PulseEngineGame() {
     private val startScreenDelay = 8f
     private val attractDemoDuration = 10f
 
-    private var ghostReleaseTimers = floatArrayOf(0f, 3f, 6f, 9f)
-    private var pelletsEatenForGhostScore = 0
-
-    private val eatenGhostSpeed = 12f * gameSpeedScale
-    private val modeSequence = listOf(
-        GhostMode.SCATTER to 7f,
-        GhostMode.CHASE to 20f,
-        GhostMode.SCATTER to 7f,
-        GhostMode.CHASE to 20f,
-        GhostMode.SCATTER to 5f,
-        GhostMode.CHASE to Float.MAX_VALUE,
-    )
 
      override fun onCreate() {
          engine.config.gameName = "PulsDniel Pacman"
@@ -402,7 +385,7 @@ class PacmanGame : PulseEngineGame() {
                 postProcessing.bloomEnabled = value
                 if (postProcessing.bloomEnabled) {
                     postProcessing.ensureBloomEffects()
-                    postProcessing.updateBloomEffectSettings(frightenedTimer, dynamicFrightenedBloomEnabled, isGameplayVisualPhase())
+                    postProcessing.updateBloomEffectSettings(ghostAI.frightenedTimer, dynamicFrightenedBloomEnabled, isGameplayVisualPhase())
                 } else {
                     postProcessing.deleteBloomEffects()
                 }
@@ -414,7 +397,7 @@ class PacmanGame : PulseEngineGame() {
             getter = { postProcessing.bloomStrength },
             sliderSetter = { delta ->
                 postProcessing.bloomStrength = (postProcessing.bloomStrength + delta).coerceIn(0f, 2f)
-                postProcessing.updateBloomEffectSettings(frightenedTimer, dynamicFrightenedBloomEnabled, isGameplayVisualPhase())
+                postProcessing.updateBloomEffectSettings(ghostAI.frightenedTimer, dynamicFrightenedBloomEnabled, isGameplayVisualPhase())
             },
         ),
         MenuItem(
@@ -665,11 +648,10 @@ class PacmanGame : PulseEngineGame() {
                  attractDemoTimer -= dt
                  updateAttractPacmanControl()
                  pacman.updatePacman(dt, ::eatDotAt) { col, row -> fruitManager.checkFruitCollision(col, row) }
-                 particleSystem.emitPacTrail(pacman.pixelX(), pacman.pixelY(), phase, frightenedTimer)
-                 particleSystem.emitFrightenedTrail(pacman.pixelX(), pacman.pixelY(), phase, frightenedTimer)
+                 particleSystem.emitPacTrail(pacman.pixelX(), pacman.pixelY(), phase, ghostAI.frightenedTimer)
+                 particleSystem.emitFrightenedTrail(pacman.pixelX(), pacman.pixelY(), phase, ghostAI.frightenedTimer)
                  particleSystem.emitAmbientDust(dt, phase)
-                 updateGhosts(dt)
-                 updateGhostModes(dt)
+                 ghostAI.update(dt, level)
                  fruitManager.updateFruit(dt)
                  checkCollisions()
                  if (Maze.dotsRemaining() == 0) {
@@ -697,11 +679,10 @@ class PacmanGame : PulseEngineGame() {
 
              GamePhase.PLAYING -> {
                  pacman.updatePacman(dt, ::eatDotAt) { col, row -> fruitManager.checkFruitCollision(col, row) }
-                 particleSystem.emitPacTrail(pacman.pixelX(), pacman.pixelY(), phase, frightenedTimer)
-                 particleSystem.emitFrightenedTrail(pacman.pixelX(), pacman.pixelY(), phase, frightenedTimer)
+                 particleSystem.emitPacTrail(pacman.pixelX(), pacman.pixelY(), phase, ghostAI.frightenedTimer)
+                 particleSystem.emitFrightenedTrail(pacman.pixelX(), pacman.pixelY(), phase, ghostAI.frightenedTimer)
                  particleSystem.emitAmbientDust(dt, phase)
-                 updateGhosts(dt)
-                 updateGhostModes(dt)
+                 ghostAI.update(dt, level)
                  fruitManager.updateFruit(dt)
                  checkCollisions()
                   if (Maze.dotsRemaining() == 0) {
@@ -778,7 +759,7 @@ class PacmanGame : PulseEngineGame() {
         }
         postProcessing.updateCRTEffectSettings()
         postProcessing.updateScanlineEffectSettings()
-        postProcessing.updateBloomEffectSettings(frightenedTimer, dynamicFrightenedBloomEnabled, gameplayPhase)
+        postProcessing.updateBloomEffectSettings(ghostAI.frightenedTimer, dynamicFrightenedBloomEnabled, gameplayPhase)
         s.setBackgroundColor(0f, 0f, 0f, 1f)
         if (gameplayPhase) {
             uiSurface.setBackgroundColor(0f, 0f, 0f, 0f)
@@ -889,15 +870,10 @@ class PacmanGame : PulseEngineGame() {
 
      private fun startLevelState(resetDots: Boolean) {
          if (resetDots) Maze.reset()
-         ghostModeIndex = 0
-         currentGhostMode = modeSequence[0].first
-         ghostModeTimer = modeSequence[0].second
-         frightenedTimer = 0f
-         pelletsEatenForGhostScore = 0
+         ghostAI.startLevel(level)
          dotsEatenThisLevel = 0
          fruitManager.reset()
          particleSystem.reset()
-        ghostReleaseTimers = floatArrayOf(0f, 3f, 6f, 9f).map { max(0f, it - (level - 1) * 0.25f) }.toFloatArray()
         resetPositions()
     }
 
@@ -911,27 +887,11 @@ class PacmanGame : PulseEngineGame() {
 
     private fun resetPositions() {
         pacman.reset()
-
-        ghosts.clear()
-        for (i in 0 until 4) {
-            val start = Maze.GHOST_STARTS[i]
-            ghosts.add(
-                GhostState(
-                    type = GhostType.entries[i],
-                    gridX = start[0],
-                    gridY = start[1],
-                    direction = Direction.LEFT,
-                    mode = GhostMode.SCATTER,
-                    progress = 0f,
-                    released = i == 0,
-                    releaseTimer = ghostReleaseTimers[i],
-                )
-            )
-        }
+        ghostAI.resetPositions()
     }
 
     private fun updateAttractPacmanControl() {
-        pacman.updateAttractPacmanControl(ghosts)
+        pacman.updateAttractPacmanControl(ghostAI.ghosts)
     }
 
     private fun eatDotAt(col: Int, row: Int) {
@@ -952,186 +912,14 @@ class PacmanGame : PulseEngineGame() {
                   scoreManager.addScore(50)
                   fruitManager.maybeSpawnFruit(dotsEatenThisLevel, level)
                  particleSystem.emitPowerPelletParticles(Maze.centerX(col), Maze.centerY(row))
-                 activateFrightened()
+                 ghostAI.activateFrightened(level)
                  soundManager.play("pacman_beginning")
             }
         }
     }
 
-    private fun activateFrightened() {
-        frightenedTimer = frightenedDurationForLevel()
-        pelletsEatenForGhostScore = 0
-        for (ghost in ghosts) {
-            if (ghost.mode != GhostMode.EATEN && ghost.released) {
-                ghost.mode = GhostMode.FRIGHTENED
-                ghost.direction = ghost.direction.opposite()
-                ghost.progress = 1f - ghost.progress
-            }
-        }
-    }
-
-    private fun updateGhostModes(dt: Float) {
-        if (frightenedTimer > 0f) {
-            frightenedTimer -= dt
-            if (frightenedTimer <= 0f) {
-                frightenedTimer = 0f
-                for (ghost in ghosts) {
-                    if (ghost.mode == GhostMode.FRIGHTENED) ghost.mode = currentGhostMode
-                }
-            }
-            return
-        }
-
-        ghostModeTimer -= dt
-        if (ghostModeTimer <= 0f && ghostModeIndex < modeSequence.size - 1) {
-            ghostModeIndex++
-            currentGhostMode = modeSequence[ghostModeIndex].first
-            ghostModeTimer = modeSequence[ghostModeIndex].second
-            for (ghost in ghosts) {
-                if (ghost.mode != GhostMode.EATEN && ghost.mode != GhostMode.FRIGHTENED) {
-                    ghost.direction = ghost.direction.opposite()
-                    ghost.progress = 1f - ghost.progress
-                    ghost.mode = currentGhostMode
-                }
-            }
-        }
-    }
-
-    private fun updateGhosts(dt: Float) {
-        for (ghost in ghosts) {
-            if (!ghost.released) {
-                ghost.releaseTimer -= dt
-                if (ghost.releaseTimer <= 0f) {
-                    ghost.released = true
-                    ghost.gridX = 14
-                    ghost.gridY = 10
-                    ghost.progress = 0f
-                    ghost.direction = Direction.LEFT
-                    ghost.mode = currentGhostMode
-                }
-                continue
-            }
-
-            val speed = when (ghost.mode) {
-                GhostMode.FRIGHTENED -> frightenedGhostSpeedForLevel()
-                GhostMode.EATEN -> eatenGhostSpeed
-                else -> ghostSpeedForLevel()
-            }
-
-            ghost.progress += speed * dt
-            if (ghost.progress < 1f) continue
-
-            val newCol = Maze.wrapCol(ghost.gridX + ghost.direction.dx)
-            val newRow = ghost.gridY + ghost.direction.dy
-            ghost.gridX = newCol
-            ghost.gridY = newRow
-            ghost.progress = 0f
-
-            if (ghost.mode == GhostMode.EATEN && ghost.gridX in 11..16 && ghost.gridY in 12..14) {
-                ghost.mode = currentGhostMode
-                ghost.gridX = 14
-                ghost.gridY = 14
-            }
-
-            chooseGhostDirection(ghost)
-        }
-    }
-
-    private fun chooseGhostDirection(ghost: GhostState) {
-        val canUseDoor = ghost.mode == GhostMode.EATEN || (ghost.gridY in 12..14 && ghost.gridX in 10..17)
-        val available = Maze.ghostAvailableDirections(ghost.gridX, ghost.gridY, canUseDoor)
-            .let { dirs -> if (ghost.mode == GhostMode.EATEN) dirs else dirs.filter { it != ghost.direction.opposite() } }
-
-        if (available.isEmpty()) {
-            ghost.direction = ghost.direction.opposite()
-            return
-        }
-
-        if (ghost.mode == GhostMode.FRIGHTENED) {
-            ghost.direction = available.random()
-            return
-        }
-
-        val target = getGhostTarget(ghost)
-        if (ghost.mode == GhostMode.EATEN) {
-            val pathDir = nextGhostStepTowards(ghost.gridX, ghost.gridY, target[0], target[1], canUseDoor = true)
-            if (pathDir != null) {
-                ghost.direction = pathDir
-                return
-            }
-        }
-
-        ghost.direction = available.minByOrNull { dir ->
-            val tx = ghost.gridX + dir.dx
-            val ty = ghost.gridY + dir.dy
-            distSq(tx, ty, target[0], target[1])
-        } ?: available.first()
-    }
-
-    private fun nextGhostStepTowards(startX: Int, startY: Int, targetX: Int, targetY: Int, canUseDoor: Boolean): Direction? {
-        if (startX == targetX && startY == targetY) return null
-
-        val visited = Array(Maze.ROWS) { BooleanArray(Maze.COLS) }
-        val firstDir = Array(Maze.ROWS) { arrayOfNulls<Direction>(Maze.COLS) }
-        val queue = ArrayDeque<Pair<Int, Int>>()
-
-        visited[startY][startX] = true
-        queue.add(startX to startY)
-
-        while (queue.isNotEmpty()) {
-            val (cx, cy) = queue.removeFirst()
-            for (dir in Direction.entries) {
-                if (dir == Direction.NONE) continue
-
-                var nx = cx + dir.dx
-                val ny = cy + dir.dy
-                if (!Maze.isGhostWalkable(nx, ny, canUseDoor)) continue
-                if (nx < 0 || nx >= Maze.COLS) nx = Maze.wrapCol(nx)
-                if (ny !in 0 until Maze.ROWS || visited[ny][nx]) continue
-
-                val first = if (cx == startX && cy == startY) dir else firstDir[cy][cx] ?: dir
-                firstDir[ny][nx] = first
-                visited[ny][nx] = true
-
-                if (nx == targetX && ny == targetY) return first
-                queue.add(nx to ny)
-            }
-        }
-
-        return null
-    }
-
-    private fun getGhostTarget(ghost: GhostState): IntArray {
-        if (ghost.mode == GhostMode.SCATTER) return Maze.SCATTER_TARGETS[ghost.type.ordinal]
-        if (ghost.mode == GhostMode.EATEN) return intArrayOf(14, 13)
-
-        return when (ghost.type) {
-            GhostType.BLINKY -> intArrayOf(pacman.gridX, pacman.gridY)
-            GhostType.PINKY -> intArrayOf(pacman.gridX + pacman.dir.dx * 4, pacman.gridY + pacman.dir.dy * 4)
-            GhostType.INKY -> {
-                val blinky = ghosts.firstOrNull { it.type == GhostType.BLINKY }
-                if (blinky != null) {
-                    val ax = pacman.gridX + pacman.dir.dx * 2
-                    val ay = pacman.gridY + pacman.dir.dy * 2
-                    intArrayOf(ax + (ax - blinky.gridX), ay + (ay - blinky.gridY))
-                } else intArrayOf(pacman.gridX, pacman.gridY)
-            }
-
-            GhostType.CLYDE -> {
-                val dist = distSq(ghost.gridX, ghost.gridY, pacman.gridX, pacman.gridY)
-                if (dist > 64) intArrayOf(pacman.gridX, pacman.gridY) else Maze.SCATTER_TARGETS[ghost.type.ordinal]
-            }
-        }
-    }
-
-    private fun distSq(x1: Int, y1: Int, x2: Int, y2: Int): Float {
-        val dx = (x1 - x2).toFloat()
-        val dy = (y1 - y2).toFloat()
-        return dx * dx + dy * dy
-    }
-
     private fun checkCollisions() {
-        for (ghost in ghosts) {
+        for (ghost in ghostAI.ghosts) {
             if (!ghost.released) continue
             val sameCell = ghost.gridX == pacman.gridX && ghost.gridY == pacman.gridY
             val adjacent = abs(ghost.gridX - pacman.gridX) + abs(ghost.gridY - pacman.gridY) <= 1 && ghost.progress > 0.5f
@@ -1140,11 +928,11 @@ class PacmanGame : PulseEngineGame() {
                 when (ghost.mode) {
                      GhostMode.FRIGHTENED -> {
                          ghost.mode = GhostMode.EATEN
-                         pelletsEatenForGhostScore++
-                          val ghostScore = 200 * (1 shl (pelletsEatenForGhostScore - 1).coerceAtMost(3))
+                         ghostAI.pelletsEatenForGhostScore++
+                          val ghostScore = 200 * (1 shl (ghostAI.pelletsEatenForGhostScore - 1).coerceAtMost(3))
                           scoreManager.addScore(ghostScore)
-                          particleSystem.emitGhostEatenParticles(ghostPixelX(ghost), ghostPixelY(ghost), ghost.type)
-                          scoreManager.addPopup(ghostPixelX(ghost), ghostPixelY(ghost) - 8f, ghostScore.toString())
+                          particleSystem.emitGhostEatenParticles(ghostAI.ghostPixelX(ghost), ghostAI.ghostPixelY(ghost), ghost.type)
+                          scoreManager.addPopup(ghostAI.ghostPixelX(ghost), ghostAI.ghostPixelY(ghost) - 8f, ghostScore.toString())
                           soundManager.play("pacman_eatghost")
                      }
 
@@ -1166,12 +954,6 @@ class PacmanGame : PulseEngineGame() {
         }
      }
 
-    private fun ghostPixelX(g: GhostState): Float = Maze.centerX(g.gridX) + g.direction.dx * g.progress * Maze.TILE
-    private fun ghostPixelY(g: GhostState): Float = Maze.centerY(g.gridY) + g.direction.dy * g.progress * Maze.TILE
-
-    private fun ghostSpeedForLevel(): Float = (6f + (level - 1) * 0.3f).coerceAtMost(9f) * gameSpeedScale
-    private fun frightenedDurationForLevel(): Float = max(3f, 8f - (level - 1) * 0.5f)
-    private fun frightenedGhostSpeedForLevel(): Float = ghostSpeedForLevel() * 0.58f
 
       private fun renderMaze(s: Surface) {
         val wallColor = floatArrayOf(0.62f, 0.88f, 1f)
@@ -1339,10 +1121,10 @@ class PacmanGame : PulseEngineGame() {
             drawFilledCircle(s, fx, fy, 13f + pulse * 2.5f, 16)
         }
 
-        for (ghost in ghosts) {
+        for (ghost in ghostAI.ghosts) {
             if (ghost.mode == GhostMode.EATEN) continue
-            val gx = if (!ghost.released) Maze.centerX(ghost.gridX) else ghostPixelX(ghost)
-            val gy = if (!ghost.released) Maze.centerY(ghost.gridY) else ghostPixelY(ghost)
+            val gx = if (!ghost.released) Maze.centerX(ghost.gridX) else ghostAI.ghostPixelX(ghost)
+            val gy = if (!ghost.released) Maze.centerY(ghost.gridY) else ghostAI.ghostPixelY(ghost)
             val c = when {
                 ghost.mode == GhostMode.FRIGHTENED -> floatArrayOf(0.45f, 0.58f, 1f)
                 ghost.type == GhostType.BLINKY -> floatArrayOf(1f, 0.24f, 0.24f)
@@ -1356,9 +1138,9 @@ class PacmanGame : PulseEngineGame() {
     }
 
     private fun renderGhosts(s: Surface) {
-        for (ghost in ghosts) {
-            val gx = if (!ghost.released && ghost.mode != GhostMode.EATEN) Maze.centerX(ghost.gridX) else ghostPixelX(ghost)
-            val gy = if (!ghost.released && ghost.mode != GhostMode.EATEN) Maze.centerY(ghost.gridY) else ghostPixelY(ghost)
+        for (ghost in ghostAI.ghosts) {
+            val gx = if (!ghost.released && ghost.mode != GhostMode.EATEN) Maze.centerX(ghost.gridX) else ghostAI.ghostPixelX(ghost)
+            val gy = if (!ghost.released && ghost.mode != GhostMode.EATEN) Maze.centerY(ghost.gridY) else ghostAI.ghostPixelY(ghost)
             val size = Maze.TILE - 4f
 
             if (ghost.mode == GhostMode.EATEN) {
@@ -1379,7 +1161,7 @@ class PacmanGame : PulseEngineGame() {
 
     private fun setGhostColor(s: Surface, ghost: GhostState) {
         if (ghost.mode == GhostMode.FRIGHTENED) {
-            val flash = frightenedTimer < 2f && ((frightenedTimer * 6f).toInt() % 2 == 0)
+            val flash = ghostAI.frightenedTimer < 2f && ((ghostAI.frightenedTimer * 6f).toInt() % 2 == 0)
             if (flash) s.setDrawColor(1f, 1f, 1f, 1f)
             else s.setDrawColor(0.08f, 0.2f, 0.82f, 1f)
             return
@@ -1521,7 +1303,7 @@ class PacmanGame : PulseEngineGame() {
         }
 
         // Ambient color priority chain: fogOfWar > frightenedAmbient > sceneBrightness
-        val anyGhostFrightened = ghosts.any { it.mode == GhostMode.FRIGHTENED }
+        val anyGhostFrightened = ghostAI.ghosts.any { it.mode == GhostMode.FRIGHTENED }
         if (fogOfWarEnabled && playfieldLightsEnabled) {
             lightingSystem?.ambientColor = Color(0.005f, 0.005f, 0.015f, 0.95f)  // Near-black
         } else if (frightenedAmbientShiftEnabled && anyGhostFrightened) {
@@ -1596,11 +1378,11 @@ class PacmanGame : PulseEngineGame() {
             }
         }
 
-        for (ghost in ghosts) {
+        for (ghost in ghostAI.ghosts) {
             val light = ghostAuraLights[ghost.type] ?: continue
             val conePair = eatenGhostConeLights[ghost.type]
-            light.x = if (!ghost.released && ghost.mode != GhostMode.EATEN) Maze.centerX(ghost.gridX) else ghostPixelX(ghost)
-            light.y = if (!ghost.released && ghost.mode != GhostMode.EATEN) Maze.centerY(ghost.gridY) else ghostPixelY(ghost)
+            light.x = if (!ghost.released && ghost.mode != GhostMode.EATEN) Maze.centerX(ghost.gridX) else ghostAI.ghostPixelX(ghost)
+            light.y = if (!ghost.released && ghost.mode != GhostMode.EATEN) Maze.centerY(ghost.gridY) else ghostAI.ghostPixelY(ghost)
 
             when (ghost.mode) {
                 GhostMode.FRIGHTENED -> {

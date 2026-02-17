@@ -125,3 +125,18 @@ Extracted managers should NOT hold references back to PacmanGame. Instead:
 - **References updated**: 20 occurrences across getGhostTarget, checkCollisions, renderPacman, renderEntityBloomHalos, syncSceneLights
 - **Result**: 145-line module with complete pac-man movement and animation encapsulation
 
+### Task 7: GhostAISystem
+- **Feasibility**: 80% (highest risk — frightenedTimer used across 5+ systems, ghosts list read everywhere)
+- **Functions moved**: 12 (update, updateGhostModes, updateGhosts, chooseGhostDirection, nextGhostStepTowards, getGhostTarget, distSq, activateFrightened, ghostPixelX, ghostPixelY, ghostSpeedForLevel, frightenedDurationForLevel, frightenedGhostSpeedForLevel)
+- **State moved**: ghosts list, frightenedTimer, ghostModeTimer, ghostModeIndex, currentGhostMode, ghostReleaseTimers, pelletsEatenForGhostScore, eatenGhostSpeed, modeSequence
+- **Constructor params**: `pacman: PacmanController, gameSpeedScale: Float` — PacmanController reference for targeting
+- **Instantiation**: `private val ghostAI = GhostAISystem(pacman, gameSpeedScale)` — use `val` directly (pacman already initialized as val)
+- **level parameter**: `level` changes over time, passed as parameter to `update(dt, level)`, `activateFrightened(level)`, `startLevel(level)`
+- **API design**: Exposed `update(dt, level)` combining both ghost mode + ghost movement (always called together)
+- **resetPositions() + startLevel(level)** are separate — startLevel sets mode state, resetPositions rebuilds ghost list (different call sites)
+- **pelletsEatenForGhostScore**: Fully public `var` — written from PacmanGame.checkCollisions when ghost is eaten
+- **frightenedTimer**: Public with `private set` — many systems read it, only GhostAI writes it
+- **ghostPixelX/Y**: Public functions — used by rendering, lighting, particles in PacmanGame
+- **frightenedTimer references updated**: 7 call sites across buildMenuItems (2), onFixedUpdate ATTRACT_DEMO (2), onFixedUpdate PLAYING (2), onRender (1), setGhostColor (2)
+- **ghosts references updated**: 6 locations (updateAttractPacmanControl, checkCollisions, renderEntityBloomHalos, renderGhosts, syncSceneLights anyGhostFrightened check, syncSceneLights ghost lights loop)
+- **Result**: 230-line module. Build passed first attempt with zero errors.
