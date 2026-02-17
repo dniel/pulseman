@@ -268,7 +268,7 @@
 
 ---
 
-- [ ] 7. Extract GhostAISystem
+- [x] 7. Extract GhostAISystem
 
   **What to do**:
   1. Create `src/main/kotlin/pacman/GhostAISystem.kt`
