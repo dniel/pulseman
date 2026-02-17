@@ -320,7 +320,7 @@
 
 ---
 
-- [ ] 8. Extract LightingManager
+- [x] 8. Extract LightingManager
 
   **What to do**:
   1. Create `src/main/kotlin/pacman/LightingManager.kt`
