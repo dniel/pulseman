@@ -222,7 +222,7 @@
 
 ---
 
-- [ ] 6. Extract PacmanController
+- [x] 6. Extract PacmanController
 
   **What to do**:
   1. Create `src/main/kotlin/pacman/PacmanController.kt`
