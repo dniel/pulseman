@@ -60,3 +60,25 @@ fun updateBloomEffectSettings(
 
 ---
 
+## Issue 6: Kotlin Property Initialization Order
+**Task**: PacmanController extraction (Task 6)
+
+**Problem**: `private val pacman = PacmanController(pacSpeed, gameSpeedScale)` was placed before `gameSpeedScale` and `pacSpeed` declarations in the class body. Kotlin initializes class properties in declaration order, so `pacman` would be initialized with uninitialized values.
+
+**Resolution**: Moved `gameSpeedScale` and `pacSpeed` declarations to appear BEFORE `pacman` in the class body, then removed the duplicate declarations further down.
+
+**Lesson**: When extracting a controller that takes constructor parameters from the host class, ensure those parameters are declared BEFORE the controller field.
+
+---
+
+## Issue 7: Callback Return Type Mismatch
+**Task**: PacmanController extraction (Task 6)
+
+**Problem**: `updatePacman()` callback `onFruitCheck: (Int, Int) -> Unit` but `fruitManager.checkFruitCollision()` returns `Boolean`. Method reference `fruitManager::checkFruitCollision` is `(Int, Int) -> Boolean`, incompatible with `(Int, Int) -> Unit`.
+
+**Resolution**: Used lambda wrapper at call site: `{ col, row -> fruitManager.checkFruitCollision(col, row) }` — Kotlin discards the return value.
+
+**Lesson**: When defining callback types for extracted functions, check the return types of the actual implementations being passed. Use `Unit` callbacks and wrap non-Unit functions in lambdas.
+
+---
+

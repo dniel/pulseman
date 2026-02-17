@@ -107,3 +107,21 @@ Extracted managers should NOT hold references back to PacmanGame. Instead:
 - **ast_grep_replace gotcha**: Tool reported replacements but didn't apply them — had to use Edit tool manually
 - **Result**: 75-line module with complete fruit lifecycle management
 
+### Task 6: PacmanController
+- **Feasibility**: 80% (trickiest extraction — state read by many systems)
+- **Functions moved**: 6 (updatePacman, updateAttractPacmanControl, scoreAttractDirection, nearestDotDistance, updateMouthAnimation, pixelX/pixelY)
+- **State moved**: 7 variables (gridX, gridY, dir, nextDir, progress, mouthAngle, mouthOpening)
+- **Constructor params**: `pacSpeed: Float, gameSpeedScale: Float` — passed at construction time
+- **Property ordering critical**: `gameSpeedScale` and `pacSpeed` must be declared BEFORE `pacman` in PacmanGame class (Kotlin initializes properties in order)
+- **Callback pattern for dot eating**: `updatePacman()` calls `eatDotAt()` and `fruitManager.checkFruitCollision()` — solved with lambda callbacks:
+  ```kotlin
+  fun updatePacman(dt: Float, onDotEaten: (Int, Int) -> Unit, onFruitCheck: (Int, Int) -> Unit)
+  ```
+- **Return type mismatch**: `fruitManager.checkFruitCollision()` returns `Boolean`, not `Unit` — used lambda wrapper at call site: `{ col, row -> fruitManager.checkFruitCollision(col, row) }`
+- **Ghost list for AI**: `updateAttractPacmanControl()` needs ghost list — passed as parameter, thin wrapper kept in PacmanGame
+- **State visibility**: All 7 state vars are public with `private set` (read by ghost AI, collision, rendering, lighting)
+- **nextDir exception**: `nextDir` is fully public (written by keyboard input in PacmanGame)
+- **reset()**: Added `reset(startX, startY, startDir)` with defaults from `Maze.PAC_START_*`
+- **References updated**: 20 occurrences across getGhostTarget, checkCollisions, renderPacman, renderEntityBloomHalos, syncSceneLights
+- **Result**: 145-line module with complete pac-man movement and animation encapsulation
+

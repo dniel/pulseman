@@ -23,13 +23,9 @@ fun main() = PulseEngine.run<PacmanGame>()
 
 class PacmanGame : PulseEngineGame() {
 
-    private var pacGridX = Maze.PAC_START_X
-    private var pacGridY = Maze.PAC_START_Y
-    private var pacDir = Direction.NONE
-    private var pacNextDir = Direction.NONE
-    private var pacProgress = 0f
-    private var mouthAngle = 0.25f
-    private var mouthOpening = true
+    private val gameSpeedScale = 0.5f
+    private val pacSpeed = 7f * gameSpeedScale
+    private val pacman = PacmanController(pacSpeed, gameSpeedScale)
 
      private val ghosts = mutableListOf<GhostState>()
 
@@ -101,8 +97,6 @@ class PacmanGame : PulseEngineGame() {
     private var ghostReleaseTimers = floatArrayOf(0f, 3f, 6f, 9f)
     private var pelletsEatenForGhostScore = 0
 
-    private val gameSpeedScale = 0.5f
-    private val pacSpeed = 7f * gameSpeedScale
     private val eatenGhostSpeed = 12f * gameSpeedScale
     private val modeSequence = listOf(
         GhostMode.SCATTER to 7f,
@@ -155,10 +149,10 @@ class PacmanGame : PulseEngineGame() {
             return
         }
 
-        if (engine.input.wasClicked(Key.UP) || engine.input.wasClicked(Key.W)) pacNextDir = Direction.UP
-        if (engine.input.wasClicked(Key.DOWN)) pacNextDir = Direction.DOWN
-        if (engine.input.wasClicked(Key.LEFT) || engine.input.wasClicked(Key.A)) pacNextDir = Direction.LEFT
-         if (engine.input.wasClicked(Key.RIGHT) || engine.input.wasClicked(Key.D)) pacNextDir = Direction.RIGHT
+        if (engine.input.wasClicked(Key.UP) || engine.input.wasClicked(Key.W)) pacman.nextDir = Direction.UP
+        if (engine.input.wasClicked(Key.DOWN)) pacman.nextDir = Direction.DOWN
+        if (engine.input.wasClicked(Key.LEFT) || engine.input.wasClicked(Key.A)) pacman.nextDir = Direction.LEFT
+         if (engine.input.wasClicked(Key.RIGHT) || engine.input.wasClicked(Key.D)) pacman.nextDir = Direction.RIGHT
          if (engine.input.wasClicked(Key.R)) resetGame()
         if (engine.input.wasClicked(Key.T)) {
             if (bootTestHold) {
@@ -669,9 +663,10 @@ class PacmanGame : PulseEngineGame() {
 
             GamePhase.ATTRACT_DEMO -> {
                  attractDemoTimer -= dt
-                 updatePacman(dt)
-                 particleSystem.emitPacTrail(pacPixelX(), pacPixelY(), phase, frightenedTimer)
-                 particleSystem.emitFrightenedTrail(pacPixelX(), pacPixelY(), phase, frightenedTimer)
+                 updateAttractPacmanControl()
+                 pacman.updatePacman(dt, ::eatDotAt) { col, row -> fruitManager.checkFruitCollision(col, row) }
+                 particleSystem.emitPacTrail(pacman.pixelX(), pacman.pixelY(), phase, frightenedTimer)
+                 particleSystem.emitFrightenedTrail(pacman.pixelX(), pacman.pixelY(), phase, frightenedTimer)
                  particleSystem.emitAmbientDust(dt, phase)
                  updateGhosts(dt)
                  updateGhostModes(dt)
@@ -701,9 +696,9 @@ class PacmanGame : PulseEngineGame() {
             }
 
              GamePhase.PLAYING -> {
-                 updatePacman(dt)
-                 particleSystem.emitPacTrail(pacPixelX(), pacPixelY(), phase, frightenedTimer)
-                 particleSystem.emitFrightenedTrail(pacPixelX(), pacPixelY(), phase, frightenedTimer)
+                 pacman.updatePacman(dt, ::eatDotAt) { col, row -> fruitManager.checkFruitCollision(col, row) }
+                 particleSystem.emitPacTrail(pacman.pixelX(), pacman.pixelY(), phase, frightenedTimer)
+                 particleSystem.emitFrightenedTrail(pacman.pixelX(), pacman.pixelY(), phase, frightenedTimer)
                  particleSystem.emitAmbientDust(dt, phase)
                  updateGhosts(dt)
                  updateGhostModes(dt)
@@ -712,7 +707,7 @@ class PacmanGame : PulseEngineGame() {
                   if (Maze.dotsRemaining() == 0) {
                       phase = GamePhase.WON
                      wonTimer = 1.5f
-                     particleSystem.emitLevelWinConfetti(pacPixelX(), pacPixelY())
+                     particleSystem.emitLevelWinConfetti(pacman.pixelX(), pacman.pixelY())
                  }
             }
 
@@ -750,7 +745,7 @@ class PacmanGame : PulseEngineGame() {
             }
         }
 
-        updateMouthAnimation(dt)
+        pacman.updateMouthAnimation(dt)
         if (attractDemoGameOverTimer > 0f) {
             attractDemoGameOverTimer = (attractDemoGameOverTimer - dt).coerceAtLeast(0f)
         }
@@ -915,11 +910,7 @@ class PacmanGame : PulseEngineGame() {
     }
 
     private fun resetPositions() {
-        pacGridX = Maze.PAC_START_X
-        pacGridY = Maze.PAC_START_Y
-        pacDir = Direction.NONE
-        pacNextDir = Direction.NONE
-        pacProgress = 0f
+        pacman.reset()
 
         ghosts.clear()
         for (i in 0 until 4) {
@@ -939,103 +930,8 @@ class PacmanGame : PulseEngineGame() {
         }
     }
 
-    private fun updatePacman(dt: Float) {
-        if (pacDir == Direction.NONE) {
-            if (pacNextDir != Direction.NONE && Maze.isWalkable(pacGridX + pacNextDir.dx, pacGridY + pacNextDir.dy)) {
-                pacDir = pacNextDir
-            }
-            return
-        }
-
-        pacProgress += pacSpeed * dt
-        if (pacProgress < 1f) return
-
-        val newCol = Maze.wrapCol(pacGridX + pacDir.dx)
-        val newRow = pacGridY + pacDir.dy
-        pacGridX = newCol
-        pacGridY = newRow
-        pacProgress = 0f
-
-        eatDotAt(pacGridX, pacGridY)
-        fruitManager.checkFruitCollision(pacGridX, pacGridY)
-
-        val canTurn = pacNextDir != Direction.NONE &&
-            pacNextDir != pacDir &&
-            Maze.isWalkable(pacGridX + pacNextDir.dx, pacGridY + pacNextDir.dy)
-        if (canTurn) {
-            pacDir = pacNextDir
-        } else if (!Maze.isWalkable(Maze.wrapCol(pacGridX + pacDir.dx), pacGridY + pacDir.dy)) {
-            pacDir = Direction.NONE
-        }
-    }
-
     private fun updateAttractPacmanControl() {
-        val choices = Maze.availableDirections(pacGridX, pacGridY)
-        if (choices.isEmpty()) {
-            pacNextDir = Direction.NONE
-            return
-        }
-
-        val best = choices.minByOrNull { direction -> scoreAttractDirection(direction, choices.size) }
-        if (best != null) {
-            pacNextDir = best
-        }
-    }
-
-    private fun scoreAttractDirection(direction: Direction, choiceCount: Int): Float {
-        val nxRaw = pacGridX + direction.dx
-        val ny = pacGridY + direction.dy
-        if (ny !in 0 until Maze.ROWS) return Float.MAX_VALUE
-        val nx = if (nxRaw < 0 || nxRaw >= Maze.COLS) Maze.wrapCol(nxRaw) else nxRaw
-
-        var score = 0f
-        when (Maze.grid[ny][nx]) {
-            Maze.POWER -> score -= 220f
-            Maze.DOT -> score -= 160f
-            else -> score += 22f
-        }
-
-        score += nearestDotDistance(nx, ny) * 7f
-
-        for (ghost in ghosts) {
-            if (!ghost.released) continue
-            val gx = ghost.gridX
-            val gy = ghost.gridY
-            val dxRaw = abs(nx - gx)
-            val dx = min(dxRaw, Maze.COLS - dxRaw)
-            val dist = dx + abs(ny - gy)
-
-            when (ghost.mode) {
-                GhostMode.EATEN -> score += 2f
-                GhostMode.FRIGHTENED -> score -= (12f / (dist + 1f))
-                else -> {
-                    if (dist <= 1) score += 3000f
-                    else if (dist == 2) score += 700f
-                    else if (dist == 3) score += 200f
-                    else score += 30f / dist
-                }
-            }
-        }
-
-        if (choiceCount > 1 && direction == pacDir.opposite()) {
-            score += 18f
-        }
-        return score
-    }
-
-    private fun nearestDotDistance(startCol: Int, startRow: Int): Int {
-        var nearest = Int.MAX_VALUE
-        for (row in 0 until Maze.ROWS) {
-            for (col in 0 until Maze.COLS) {
-                val tile = Maze.grid[row][col]
-                if (tile != Maze.DOT && tile != Maze.POWER) continue
-                val dxRaw = abs(col - startCol)
-                val dx = min(dxRaw, Maze.COLS - dxRaw)
-                val distance = dx + abs(row - startRow)
-                if (distance < nearest) nearest = distance
-            }
-        }
-        return if (nearest == Int.MAX_VALUE) 0 else nearest
+        pacman.updateAttractPacmanControl(ghosts)
     }
 
     private fun eatDotAt(col: Int, row: Int) {
@@ -1210,20 +1106,20 @@ class PacmanGame : PulseEngineGame() {
         if (ghost.mode == GhostMode.EATEN) return intArrayOf(14, 13)
 
         return when (ghost.type) {
-            GhostType.BLINKY -> intArrayOf(pacGridX, pacGridY)
-            GhostType.PINKY -> intArrayOf(pacGridX + pacDir.dx * 4, pacGridY + pacDir.dy * 4)
+            GhostType.BLINKY -> intArrayOf(pacman.gridX, pacman.gridY)
+            GhostType.PINKY -> intArrayOf(pacman.gridX + pacman.dir.dx * 4, pacman.gridY + pacman.dir.dy * 4)
             GhostType.INKY -> {
                 val blinky = ghosts.firstOrNull { it.type == GhostType.BLINKY }
                 if (blinky != null) {
-                    val ax = pacGridX + pacDir.dx * 2
-                    val ay = pacGridY + pacDir.dy * 2
+                    val ax = pacman.gridX + pacman.dir.dx * 2
+                    val ay = pacman.gridY + pacman.dir.dy * 2
                     intArrayOf(ax + (ax - blinky.gridX), ay + (ay - blinky.gridY))
-                } else intArrayOf(pacGridX, pacGridY)
+                } else intArrayOf(pacman.gridX, pacman.gridY)
             }
 
             GhostType.CLYDE -> {
-                val dist = distSq(ghost.gridX, ghost.gridY, pacGridX, pacGridY)
-                if (dist > 64) intArrayOf(pacGridX, pacGridY) else Maze.SCATTER_TARGETS[ghost.type.ordinal]
+                val dist = distSq(ghost.gridX, ghost.gridY, pacman.gridX, pacman.gridY)
+                if (dist > 64) intArrayOf(pacman.gridX, pacman.gridY) else Maze.SCATTER_TARGETS[ghost.type.ordinal]
             }
         }
     }
@@ -1237,10 +1133,10 @@ class PacmanGame : PulseEngineGame() {
     private fun checkCollisions() {
         for (ghost in ghosts) {
             if (!ghost.released) continue
-            val sameCell = ghost.gridX == pacGridX && ghost.gridY == pacGridY
-            val adjacent = abs(ghost.gridX - pacGridX) + abs(ghost.gridY - pacGridY) <= 1 && ghost.progress > 0.5f
+            val sameCell = ghost.gridX == pacman.gridX && ghost.gridY == pacman.gridY
+            val adjacent = abs(ghost.gridX - pacman.gridX) + abs(ghost.gridY - pacman.gridY) <= 1 && ghost.progress > 0.5f
 
-            if (sameCell || (adjacent && pacProgress > 0.5f && ghost.direction == pacDir.opposite())) {
+            if (sameCell || (adjacent && pacman.progress > 0.5f && ghost.direction == pacman.dir.opposite())) {
                 when (ghost.mode) {
                      GhostMode.FRIGHTENED -> {
                          ghost.mode = GhostMode.EATEN
@@ -1254,7 +1150,7 @@ class PacmanGame : PulseEngineGame() {
 
                      GhostMode.EATEN -> {}
                      else -> {
-                         particleSystem.emitDeathParticles(pacPixelX(), pacPixelY())
+                         particleSystem.emitDeathParticles(pacman.pixelX(), pacman.pixelY())
                          soundManager.play("pacman_death")
                         if (phase == GamePhase.ATTRACT_DEMO) {
                             attractDemoGameOverTimer = 1.25f
@@ -1270,25 +1166,6 @@ class PacmanGame : PulseEngineGame() {
         }
      }
 
-     private fun updateMouthAnimation(dt: Float) {
-        val speed = 12.0f * gameSpeedScale
-        if (mouthOpening) {
-            mouthAngle += speed * dt
-            if (mouthAngle >= 1f) {
-                mouthAngle = 1f
-                mouthOpening = false
-            }
-        } else {
-            mouthAngle -= speed * dt
-            if (mouthAngle <= 0.15f) {
-                mouthAngle = 0.15f
-                mouthOpening = true
-            }
-        }
-    }
-
-     private fun pacPixelX(): Float = Maze.centerX(pacGridX) + pacDir.dx * pacProgress * Maze.TILE
-    private fun pacPixelY(): Float = Maze.centerY(pacGridY) + pacDir.dy * pacProgress * Maze.TILE
     private fun ghostPixelX(g: GhostState): Float = Maze.centerX(g.gridX) + g.direction.dx * g.progress * Maze.TILE
     private fun ghostPixelY(g: GhostState): Float = Maze.centerY(g.gridY) + g.direction.dy * g.progress * Maze.TILE
 
@@ -1395,8 +1272,8 @@ class PacmanGame : PulseEngineGame() {
     }
 
     private fun renderPacman(s: Surface) {
-        val px = pacPixelX()
-        val py = pacPixelY()
+        val px = pacman.pixelX()
+        val py = pacman.pixelY()
         val radius = (Maze.TILE - 4f) * 0.5f
 
         if (phase == GamePhase.DYING) {
@@ -1406,14 +1283,14 @@ class PacmanGame : PulseEngineGame() {
             val dyingMouth = (0.35f + gone * 0.65f).coerceAtMost(1f)
             s.setDrawColor(1f, 0.95f, 0f, 1f)
             drawFilledCircle(s, px, py, radius * shrink, 20)
-            drawPacmanMouthCutout(s, px, py, radius * shrink, if (pacDir == Direction.NONE) Direction.RIGHT else pacDir, dyingMouth)
+            drawPacmanMouthCutout(s, px, py, radius * shrink, if (pacman.dir == Direction.NONE) Direction.RIGHT else pacman.dir, dyingMouth)
             return
         }
 
         s.setDrawColor(1f, 0.95f, 0f, 1f)
         drawFilledCircle(s, px, py, radius, 20)
-        if (pacDir != Direction.NONE) {
-            drawPacmanMouthCutout(s, px, py, radius, pacDir, mouthAngle)
+        if (pacman.dir != Direction.NONE) {
+            drawPacmanMouthCutout(s, px, py, radius, pacman.dir, pacman.mouthAngle)
         }
     }
 
@@ -1450,8 +1327,8 @@ class PacmanGame : PulseEngineGame() {
 
     private fun renderEntityBloomHalos(s: Surface) {
         val pulse = 0.5f + 0.5f * sin(uiPulseTime * 4.3f)
-        val pacX = pacPixelX()
-        val pacY = pacPixelY()
+        val pacX = pacman.pixelX()
+        val pacY = pacman.pixelY()
         s.setDrawColor(1f, 0.95f, 0.24f, 0.16f + pulse * 0.12f)
         drawFilledCircle(s, pacX, pacY, 16f + pulse * 3f, 18)
 
@@ -1667,8 +1544,8 @@ class PacmanGame : PulseEngineGame() {
          boardBacklight?.intensity = if (fogOfWarEnabled) 0.05f else if (boardBacklightEnabled) 0.5f + pulse * 0.1f else 0f
 
         pacAuraLight?.apply {
-            x = pacPixelX()
-            y = pacPixelY()
+            x = pacman.pixelX()
+            y = pacman.pixelY()
             if (enhancedPacAuraEnabled) {
                 radius = 320f
                 size = 44f
