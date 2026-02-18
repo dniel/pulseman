@@ -8,6 +8,7 @@ import kotlin.random.Random
 class ParticleSystem {
     private val particles = mutableListOf<Particle>()
     private var dustEmitAccumulator = 0f
+    private var confettiAccumulator = 0f
     
     var frightenedParticleTrailEnabled = true
     var ambientDustEnabled = true
@@ -17,6 +18,7 @@ class ParticleSystem {
     fun reset() {
         particles.clear()
         dustEmitAccumulator = 0f
+        confettiAccumulator = 0f
     }
 
     fun updateParticles(dt: Float) {
@@ -193,20 +195,43 @@ class ParticleSystem {
         )
     }
 
+    /** One-time burst at Pac-Man's position when level is won. */
     fun emitLevelWinConfetti(x: Float, y: Float) {
         if (!levelWinConfettiEnabled) return
-        
-        val colors = listOf(
-            Triple(1f, 0.2f, 0.2f),
-            Triple(0.2f, 1f, 0.3f),
-            Triple(0.3f, 0.5f, 1f),
-            Triple(1f, 1f, 0.2f),
-            Triple(1f, 0.5f, 1f),
-        )
-        for ((r, g, b) in colors) {
-            emitBurst(x, y, count = 10, speedMin = 60f, speedMax = 200f,
-                lifeMin = 0.5f, lifeMax = 1.2f, sizeMin = 1.8f, sizeMax = 4f,
+
+        for ((r, g, b) in CONFETTI_COLORS) {
+            emitBurst(x, y, count = 12, speedMin = 80f, speedMax = 260f,
+                lifeMin = 0.8f, lifeMax = 1.5f, sizeMin = 3f, sizeMax = 6f,
                 red = r, green = g, blue = b)
+        }
+    }
+
+    /** Call every frame during WON phase to rain confetti across the maze. */
+    fun emitContinuousConfetti(dt: Float) {
+        if (!levelWinConfettiEnabled) return
+
+        confettiAccumulator += dt
+        val emitInterval = 0.03f
+        val mazeLeft = Maze.OFFSET_X
+        val mazeWidth = Maze.COLS * Maze.TILE.toFloat()
+        while (confettiAccumulator >= emitInterval) {
+            confettiAccumulator -= emitInterval
+            val rx = mazeLeft + Random.nextFloat() * mazeWidth
+            val ry = Maze.OFFSET_Y + Random.nextFloat() * 40f
+            val (r, g, b) = CONFETTI_COLORS[Random.nextInt(CONFETTI_COLORS.size)]
+            val angle = (PI * 0.25f + Random.nextFloat() * PI * 0.5f).toFloat()
+            val speed = 40f + Random.nextFloat() * 100f
+            val life = 1.0f + Random.nextFloat() * 0.8f
+            val size = 2.5f + Random.nextFloat() * 4f
+            particles += Particle(
+                x = rx, y = ry,
+                vx = cos(angle) * speed * (if (Random.nextBoolean()) 1f else -1f),
+                vy = sin(angle) * speed,
+                size = size,
+                life = life,
+                maxLife = life,
+                red = r, green = g, blue = b,
+            )
         }
     }
 
@@ -229,6 +254,13 @@ class ParticleSystem {
     }
 
     companion object {
-        private const val MAX_PARTICLES = 300
+        private const val MAX_PARTICLES = 400
+        private val CONFETTI_COLORS = listOf(
+            Triple(1f, 0.2f, 0.2f),
+            Triple(0.2f, 1f, 0.3f),
+            Triple(0.3f, 0.5f, 1f),
+            Triple(1f, 1f, 0.2f),
+            Triple(1f, 0.5f, 1f),
+        )
     }
 }

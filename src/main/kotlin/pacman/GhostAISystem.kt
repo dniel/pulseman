@@ -12,11 +12,15 @@ class GhostAISystem(
         private set
 
     var pelletsEatenForGhostScore = 0
+    var dotsRemaining: Int = Int.MAX_VALUE
 
     private var ghostModeTimer = 0f
     private var ghostModeIndex = 0
     private var currentGhostMode = GhostMode.SCATTER
     private var ghostReleaseTimers = floatArrayOf(0f, 3f, 6f, 9f)
+    private val dotReleaseThresholds = intArrayOf(0, 7, 17, 32)
+    private val cachedEatenDir = arrayOfNulls<Direction>(4)
+    private val cachedEatenFrom = Array(4) { intArrayOf(-1, -1) }
 
     private val eatenGhostSpeed = 12f * gameSpeedScale
     private val modeSequence = listOf(
@@ -34,12 +38,14 @@ class GhostAISystem(
         ghostModeTimer = modeSequence[0].second
         frightenedTimer = 0f
         pelletsEatenForGhostScore = 0
+        clearEatenPathCache()
         ghostReleaseTimers = floatArrayOf(0f, 3f, 6f, 9f)
             .map { max(0f, it - (level - 1) * 0.25f) }
             .toFloatArray()
     }
 
     fun resetPositions() {
+        clearEatenPathCache()
         ghosts.clear()
         for (i in 0 until 4) {
             val start = Maze.GHOST_STARTS[i]
@@ -103,10 +109,13 @@ class GhostAISystem(
     }
 
     private fun updateGhosts(dt: Float, level: Int) {
-        for (ghost in ghosts) {
+        val dotsEaten = (Maze.totalDots() - dotsRemaining).coerceAtLeast(0)
+        for (i in ghosts.indices) {
+            val ghost = ghosts[i]
             if (!ghost.released) {
                 ghost.releaseTimer -= dt
-                if (ghost.releaseTimer <= 0f) {
+                val dotThreshold = max(0, dotReleaseThresholds[i] - (level - 1) * 2)
+                if (ghost.releaseTimer <= 0f || dotsEaten >= dotThreshold) {
                     ghost.released = true
                     ghost.gridX = 14
                     ghost.gridY = 10
@@ -120,10 +129,11 @@ class GhostAISystem(
             val speed = when (ghost.mode) {
                 GhostMode.FRIGHTENED -> frightenedGhostSpeedForLevel(level)
                 GhostMode.EATEN -> eatenGhostSpeed
-                else -> ghostSpeedForLevel(level)
+                else -> ghostSpeedForLevel(level, ghost.type)
             }
+            val tunnelSlowdown = if (ghost.mode != GhostMode.EATEN && ghost.gridY == 13 && (ghost.gridX <= 5 || ghost.gridX >= 22)) 0.6f else 1f
 
-            ghost.progress += speed * dt
+            ghost.progress += speed * tunnelSlowdown * dt
             if (ghost.progress < 1f) continue
 
             val newCol = Maze.wrapCol(ghost.gridX + ghost.direction.dx)
@@ -138,11 +148,11 @@ class GhostAISystem(
                 ghost.gridY = 14
             }
 
-            chooseGhostDirection(ghost)
+            chooseGhostDirection(i, ghost)
         }
     }
 
-    private fun chooseGhostDirection(ghost: GhostState) {
+    private fun chooseGhostDirection(idx: Int, ghost: GhostState) {
         val canUseDoor = ghost.mode == GhostMode.EATEN || (ghost.gridY in 12..14 && ghost.gridX in 10..17)
         val available = Maze.ghostAvailableDirections(ghost.gridX, ghost.gridY, canUseDoor)
             .let { dirs -> if (ghost.mode == GhostMode.EATEN) dirs else dirs.filter { it != ghost.direction.opposite() } }
@@ -159,7 +169,16 @@ class GhostAISystem(
 
         val target = getGhostTarget(ghost)
         if (ghost.mode == GhostMode.EATEN) {
-            val pathDir = nextGhostStepTowards(ghost.gridX, ghost.gridY, target[0], target[1], canUseDoor = true)
+            val from = cachedEatenFrom[idx]
+            val pathDir = if (from[0] == ghost.gridX && from[1] == ghost.gridY) {
+                cachedEatenDir[idx]
+            } else {
+                nextGhostStepTowards(ghost.gridX, ghost.gridY, target[0], target[1], canUseDoor = true).also { dir ->
+                    cachedEatenDir[idx] = dir
+                    from[0] = ghost.gridX
+                    from[1] = ghost.gridY
+                }
+            }
             if (pathDir != null) {
                 ghost.direction = pathDir
                 return
@@ -235,10 +254,27 @@ class GhostAISystem(
         return dx * dx + dy * dy
     }
 
+    private fun clearEatenPathCache() {
+        for (i in cachedEatenDir.indices) {
+            cachedEatenDir[i] = null
+            cachedEatenFrom[i][0] = -1
+            cachedEatenFrom[i][1] = -1
+        }
+    }
+
     fun ghostPixelX(g: GhostState): Float = Maze.centerX(g.gridX) + g.direction.dx * g.progress * Maze.TILE
     fun ghostPixelY(g: GhostState): Float = Maze.centerY(g.gridY) + g.direction.dy * g.progress * Maze.TILE
 
-    private fun ghostSpeedForLevel(level: Int): Float = (6f + (level - 1) * 0.3f).coerceAtMost(9f) * gameSpeedScale
+    private fun baseGhostSpeedForLevel(level: Int): Float = (6f + (level - 1) * 0.3f).coerceAtMost(9f) * gameSpeedScale
+    private fun ghostSpeedForLevel(level: Int, ghostType: GhostType): Float {
+        val baseSpeed = baseGhostSpeedForLevel(level)
+        if (ghostType != GhostType.BLINKY) return baseSpeed
+        return when {
+            dotsRemaining <= 10 -> baseSpeed * 1.15f
+            dotsRemaining <= 20 -> baseSpeed * 1.05f
+            else -> baseSpeed
+        }
+    }
     private fun frightenedDurationForLevel(level: Int): Float = max(3f, 8f - (level - 1) * 0.5f)
-    private fun frightenedGhostSpeedForLevel(level: Int): Float = ghostSpeedForLevel(level) * 0.58f
+    private fun frightenedGhostSpeedForLevel(level: Int): Float = baseGhostSpeedForLevel(level) * 0.58f
 }

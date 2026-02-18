@@ -6,6 +6,8 @@ class PacmanController(
     private val pacSpeed: Float,
     private val gameSpeedScale: Float,
 ) {
+    private var cachedNearestDotGrid: Array<IntArray>? = null
+
     var gridX = Maze.PAC_START_X
         private set
     var gridY = Maze.PAC_START_Y
@@ -75,28 +77,50 @@ class PacmanController(
         }
     }
 
+    fun invalidateDotCache() {
+        cachedNearestDotGrid = null
+    }
+
     private fun scoreAttractDirection(direction: Direction, choiceCount: Int, ghosts: List<GhostState>): Float {
         val nxRaw = gridX + direction.dx
         val ny = gridY + direction.dy
         if (ny !in 0 until Maze.ROWS) return Float.MAX_VALUE
         val nx = if (nxRaw < 0 || nxRaw >= Maze.COLS) Maze.wrapCol(nxRaw) else nxRaw
 
+        var score = scorePosition(nx, ny, ghosts)
+
+        val step2 = bestNextStep(nx, ny, direction, ghosts)
+        if (step2 != null) {
+            score += step2.score * 0.5f
+            val step3 = bestNextStep(step2.col, step2.row, step2.direction, ghosts)
+            if (step3 != null) {
+                score += step3.score * 0.25f
+            }
+        }
+
+        if (choiceCount > 1 && direction == dir.opposite()) {
+            score += 18f
+        }
+        return score
+    }
+
+    private fun scorePosition(col: Int, row: Int, ghosts: List<GhostState>): Float {
         var score = 0f
-        when (Maze.grid[ny][nx]) {
+        when (Maze.grid[row][col]) {
             Maze.POWER -> score -= 220f
             Maze.DOT -> score -= 160f
             else -> score += 22f
         }
 
-        score += nearestDotDistance(nx, ny) * 7f
+        score += nearestDotDistance(col, row) * 7f
 
         for (ghost in ghosts) {
             if (!ghost.released) continue
             val gx = ghost.gridX
             val gy = ghost.gridY
-            val dxRaw = abs(nx - gx)
+            val dxRaw = abs(col - gx)
             val dx = min(dxRaw, Maze.COLS - dxRaw)
-            val dist = dx + abs(ny - gy)
+            val dist = dx + abs(row - gy)
 
             when (ghost.mode) {
                 GhostMode.EATEN -> score += 2f
@@ -110,26 +134,68 @@ class PacmanController(
             }
         }
 
-        if (choiceCount > 1 && direction == dir.opposite()) {
-            score += 18f
-        }
         return score
     }
 
+    private fun bestNextStep(col: Int, row: Int, prevDirection: Direction, ghosts: List<GhostState>): StepScore? {
+        val dirs = Maze.availableDirections(col, row).filter { it != prevDirection.opposite() }
+        if (dirs.isEmpty()) return null
+
+        var best: StepScore? = null
+        for (direction in dirs) {
+            val nxRaw = col + direction.dx
+            val ny = row + direction.dy
+            if (ny !in 0 until Maze.ROWS) continue
+            val nx = if (nxRaw < 0 || nxRaw >= Maze.COLS) Maze.wrapCol(nxRaw) else nxRaw
+            val tileScore = scorePosition(nx, ny, ghosts)
+            if (best == null || tileScore < best.score) {
+                best = StepScore(nx, ny, tileScore, direction)
+            }
+        }
+        return best
+    }
+
     private fun nearestDotDistance(startCol: Int, startRow: Int): Int {
-        var nearest = Int.MAX_VALUE
+        val distances = cachedNearestDotGrid ?: buildNearestDotGrid().also { cachedNearestDotGrid = it }
+        val nearest = distances[startRow][startCol]
+        return if (nearest == Int.MAX_VALUE) 0 else nearest
+    }
+
+    private fun buildNearestDotGrid(): Array<IntArray> {
+        val distances = Array(Maze.ROWS) { IntArray(Maze.COLS) { Int.MAX_VALUE } }
+        val queue = ArrayDeque<Pair<Int, Int>>()
+
         for (row in 0 until Maze.ROWS) {
             for (col in 0 until Maze.COLS) {
                 val tile = Maze.grid[row][col]
-                if (tile != Maze.DOT && tile != Maze.POWER) continue
-                val dxRaw = abs(col - startCol)
-                val dx = min(dxRaw, Maze.COLS - dxRaw)
-                val distance = dx + abs(row - startRow)
-                if (distance < nearest) nearest = distance
+                if (tile == Maze.DOT || tile == Maze.POWER) {
+                    distances[row][col] = 0
+                    queue.add(col to row)
+                }
             }
         }
-        return if (nearest == Int.MAX_VALUE) 0 else nearest
+
+        while (queue.isNotEmpty()) {
+            val (cx, cy) = queue.removeFirst()
+            val nextDistance = distances[cy][cx] + 1
+
+            for (direction in Direction.entries) {
+                if (direction == Direction.NONE) continue
+                var nx = cx + direction.dx
+                val ny = cy + direction.dy
+                if (!Maze.isWalkable(nx, ny)) continue
+                if (nx < 0 || nx >= Maze.COLS) nx = Maze.wrapCol(nx)
+                if (ny !in 0 until Maze.ROWS) continue
+                if (nextDistance >= distances[ny][nx]) continue
+                distances[ny][nx] = nextDistance
+                queue.add(nx to ny)
+            }
+        }
+
+        return distances
     }
+
+    private data class StepScore(val col: Int, val row: Int, val score: Float, val direction: Direction)
 
     fun updateMouthAnimation(dt: Float) {
         val speed = 12.0f * gameSpeedScale

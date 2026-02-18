@@ -429,13 +429,14 @@ class PacmanGame : PulseEngineGame() {
                 }
             }
 
-            GamePhase.ATTRACT_DEMO -> {
+             GamePhase.ATTRACT_DEMO -> {
                  attractDemoTimer -= dt
                  updateAttractPacmanControl()
                  pacman.updatePacman(dt, ::eatDotAt) { col, row -> fruitManager.checkFruitCollision(col, row) }
                  particleSystem.emitPacTrail(pacman.pixelX(), pacman.pixelY(), phase, ghostAI.frightenedTimer)
                  particleSystem.emitFrightenedTrail(pacman.pixelX(), pacman.pixelY(), phase, ghostAI.frightenedTimer)
                  particleSystem.emitAmbientDust(dt, phase)
+                 ghostAI.dotsRemaining = (Maze.totalDots() - dotsEatenThisLevel).coerceAtLeast(0)
                  ghostAI.update(dt, level)
                  fruitManager.updateFruit(dt)
                  checkCollisions()
@@ -467,6 +468,7 @@ class PacmanGame : PulseEngineGame() {
                  particleSystem.emitPacTrail(pacman.pixelX(), pacman.pixelY(), phase, ghostAI.frightenedTimer)
                  particleSystem.emitFrightenedTrail(pacman.pixelX(), pacman.pixelY(), phase, ghostAI.frightenedTimer)
                  particleSystem.emitAmbientDust(dt, phase)
+                 ghostAI.dotsRemaining = (Maze.totalDots() - dotsEatenThisLevel).coerceAtLeast(0)
                  ghostAI.update(dt, level)
                  fruitManager.updateFruit(dt)
                  checkCollisions()
@@ -493,6 +495,7 @@ class PacmanGame : PulseEngineGame() {
             }
 
             GamePhase.WON -> {
+                particleSystem.emitContinuousConfetti(dt)
                 wonTimer -= dt
                 if (wonTimer <= 0f) startNextLevelTransition()
             }
@@ -661,6 +664,7 @@ class PacmanGame : PulseEngineGame() {
          if (resetDots) Maze.reset()
          ghostAI.startLevel(level)
          dotsEatenThisLevel = 0
+         pacman.invalidateDotCache()
          fruitManager.reset()
          particleSystem.reset()
         resetPositions()
@@ -688,7 +692,8 @@ class PacmanGame : PulseEngineGame() {
         when (Maze.grid[row][col]) {
              Maze.DOT -> {
                  Maze.grid[row][col] = Maze.EMPTY
-                  dotsEatenThisLevel++
+                 dotsEatenThisLevel++
+                 pacman.invalidateDotCache()
                   scoreManager.addScore(10)
                   fruitManager.maybeSpawnFruit(dotsEatenThisLevel, level)
                  particleSystem.emitDotParticles(Maze.centerX(col), Maze.centerY(row))
@@ -698,6 +703,7 @@ class PacmanGame : PulseEngineGame() {
              Maze.POWER -> {
                  Maze.grid[row][col] = Maze.EMPTY
                  dotsEatenThisLevel++
+                 pacman.invalidateDotCache()
                   scoreManager.addScore(50)
                   fruitManager.maybeSpawnFruit(dotsEatenThisLevel, level)
                  particleSystem.emitPowerPelletParticles(Maze.centerX(col), Maze.centerY(row))
@@ -1666,5 +1672,3 @@ data class Particle(
 )
 
 data class HighScoreData(val score: Int)
-
-
