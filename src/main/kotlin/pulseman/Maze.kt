@@ -3,10 +3,8 @@ package pulseman
 /**
  * The game maze — a 28×28 tile grid defining the playfield layout, walkability, and coordinate mapping.
  *
- * The maze is parsed from a compact ASCII [LAYOUT] string where each character maps to a tile type
- * (wall, dot, power pellet, empty, ghost house, ghost door, or void). Row 13 (the tunnel row) is
- * hardcoded separately because it contains the wrap-around tunnel corridors on both sides and cannot
- * be represented in a single ASCII line.
+ * The maze is parsed from a compact ASCII layout string (provided by a [MazeLayout]) where each
+ * character maps to a tile type (wall, dot, power pellet, empty, ghost house, ghost door, or void).
  *
  * ### Tile types
  * | Constant     | Value | Description                                      |
@@ -25,10 +23,10 @@ package pulseman
  * and [OFFSET_Y] to center the board on screen.
  *
  * ### Initialization
- * On first access the [originalGrid] is built from [LAYOUT], then [sealUnreachableTiles] runs a
- * BFS flood-fill from Pulse-Man's start position to convert any unreachable walkable tiles to walls,
- * preventing entities from entering dead zones. [reset] copies the original grid so dots can be
- * restored between levels.
+ * On first access, the [MazeLayouts.CLASSIC] layout is loaded. [loadLayout] can be called to
+ * switch to a different layout. After parsing, [sealUnreachableTiles] runs a BFS flood-fill
+ * from Pulse-Man's start position to convert any unreachable walkable tiles to walls.
+ * [reset] copies the original grid so dots can be restored between levels.
  */
 object Maze {
 
@@ -78,37 +76,11 @@ object Maze {
         intArrayOf(0, 27),
     )
 
-    // Legend: # wall  . dot  o power  _ empty  H ghost-house  - ghost-door  (space) void
-    private val LAYOUT = arrayOf(
-        "############################",
-        "#............##............#",
-        "#.####.#####.##.#####.####.#",
-        "#o####.#####.##.#####.####o#",
-        "#.####.#####.##.#####.####.#",
-        "#..........................#",
-        "#.####.##.########.##.####.#",
-        "#......##....##....##......#",
-        "######.#####_##_#####.######",
-        "     #.#####_##_#####.#     ",
-        "     #.##__________##.#     ",
-        "     #.##_###--###_##.#     ",
-        "######.##_#HHHHHH#_##.######",
-        "TUNNEL_ROW_HANDLED_BELOW____",
-        "######.##_#HHHHHH#_##.######",
-        "     #.##_########_##.#     ",
-        "     #.##__________##.#     ",
-        "     #.##_########_##.#     ",
-        "######.##_########_##.######",
-        "#............##............#",
-        "#.####.#####.##.#####.####.#",
-        "#o..##.......__.......##..o#",
-        "###.##.##.########.##.##.###",
-        "#......##....##....##......#",
-        "#.##########.##.##########.#",
-        "#.##########.##.##########.#",
-        "#..........................#",
-        "############################",
-    )
+    /** The currently loaded maze layout, controlling grid structure and wall colors. */
+    var currentLayout: MazeLayout = MazeLayouts.CLASSIC
+        private set
+
+    private var tunnelRows: Set<Int> = MazeLayouts.CLASSIC.tunnelRows
 
     var grid: Array<IntArray> = emptyArray()
         private set
@@ -117,22 +89,30 @@ object Maze {
     private var _totalDots = 0
 
     init {
-        originalGrid = buildGrid()
+        loadLayout(MazeLayouts.CLASSIC)
+    }
+
+    /**
+     * Loads a new maze layout, replacing the current grid.
+     * Parses the ASCII layout, seals unreachable tiles via BFS, and resets the grid with fresh dots.
+     */
+    fun loadLayout(layout: MazeLayout) {
+        currentLayout = layout
+        tunnelRows = layout.tunnelRows
+        originalGrid = buildGrid(layout.ascii)
         sealUnreachableTiles(originalGrid)
         reset()
     }
 
     /**
-     * Parses the ASCII [LAYOUT] into a 2D integer grid.
-     * Row 13 is skipped in the layout and filled manually to encode the tunnel corridors
-     * and ghost house interior that cannot be represented in a single ASCII string.
+     * Parses a 28-row ASCII layout into a 2D integer grid.
+     * All 28 rows are read directly — tunnel rows and ghost house rows are encoded inline.
      */
-    private fun buildGrid(): Array<IntArray> {
+    private fun buildGrid(ascii: Array<String>): Array<IntArray> {
         val g = Array(ROWS) { IntArray(COLS) { VOID } }
 
-        for (row in LAYOUT.indices) {
-            if (row == 13) continue
-            val line = LAYOUT[row]
+        for (row in ascii.indices) {
+            val line = ascii[row]
             for (col in 0 until COLS) {
                 if (col >= line.length) {
                     g[row][col] = VOID
@@ -150,12 +130,6 @@ object Maze {
                 }
             }
         }
-
-        g[13] = intArrayOf(
-            EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, DOT, EMPTY, EMPTY, EMPTY,
-            WALL, GHOST_HOUSE, GHOST_HOUSE, GHOST_HOUSE, GHOST_HOUSE, GHOST_HOUSE, GHOST_HOUSE, WALL,
-            EMPTY, EMPTY, EMPTY, DOT, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY
-        )
 
         return g
     }
@@ -183,7 +157,7 @@ object Maze {
 
     /**
      * Whether Pulse-Man can walk on the given tile.
-     * Out-of-bounds columns on the tunnel row are walkable (wrap-around); all other
+     * Out-of-bounds columns on tunnel rows are walkable (wrap-around); all other
      * out-of-bounds positions are not. Dots, power pellets, and empty tiles are walkable.
      */
     fun isWalkable(col: Int, row: Int): Boolean {
@@ -211,7 +185,7 @@ object Maze {
         }
     }
 
-    private fun isTunnelRow(row: Int): Boolean = row == 13
+    private fun isTunnelRow(row: Int): Boolean = row in tunnelRows
 
     /** Wraps a column index for tunnel traversal (left edge → right, right edge → left). */
     fun wrapCol(col: Int): Int = when {

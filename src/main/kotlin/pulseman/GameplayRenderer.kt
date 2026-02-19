@@ -23,7 +23,7 @@ class GameplayRenderer(
      * Renders the maze structure, dots, power pellets, and ghost house door.
      */
     fun renderMaze(s: Surface, uiPulseTime: Float) {
-        val wallColor = floatArrayOf(0.62f, 0.88f, 1f)
+        val wallColor = Maze.currentLayout.wallColor
         val thickness = if (wallThinOutlineMode) 1f else 3f
         val wallBase = when {
             !wallBevelEnabled -> wallColor

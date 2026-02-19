@@ -27,6 +27,7 @@ class PulseManGame : PulseEngineGame() {
 
      private var lives = 3
      private var level = 1
+     var mazeMode = MazeMode.CLASSIC
 
     private var phase = GamePhase.READY
     private var bootTimer = 0f
@@ -139,6 +140,21 @@ class PulseManGame : PulseEngineGame() {
     }
 
     private fun buildMenuItems(): List<MenuItem> = listOf(
+        MenuItem(
+            label = "GAME",
+            type = MenuItemType.Header,
+        ),
+        MenuItem(
+            label = "Maze Mode",
+            type = MenuItemType.Cycle,
+            getter = { mazeMode },
+            cycleSetter = {
+                mazeMode = when (mazeMode) {
+                    MazeMode.CLASSIC -> MazeMode.MS_PULSEMAN
+                    MazeMode.MS_PULSEMAN -> MazeMode.CLASSIC
+                }
+            },
+        ),
         MenuItem(
             label = "POST-PROCESSING",
             type = MenuItemType.Header,
@@ -566,7 +582,7 @@ class PulseManGame : PulseEngineGame() {
     private fun resetGame() {
         serviceMenu.isOpen = false
         bootTestHold = false
-        Maze.reset()
+        Maze.loadLayout(MazeLayouts.forLevel(1, mazeMode))
         scoreManager.reset()
         lives = 3
         level = 1
@@ -586,7 +602,7 @@ class PulseManGame : PulseEngineGame() {
     private fun startNewGameFromStartup() {
         serviceMenu.isOpen = false
         bootTestHold = false
-        Maze.reset()
+        Maze.loadLayout(MazeLayouts.forLevel(1, mazeMode))
         scoreManager.reset()
         lives = 3
         level = 1
@@ -602,7 +618,7 @@ class PulseManGame : PulseEngineGame() {
     }
 
      private fun startAttractDemo() {
-         Maze.reset()
+         Maze.loadLayout(MazeLayouts.forLevel(1, mazeMode))
          scoreManager.reset()
          lives = 3
          level = 1
@@ -629,7 +645,10 @@ class PulseManGame : PulseEngineGame() {
     }
 
      private fun startLevelState(resetDots: Boolean) {
-         if (resetDots) Maze.reset()
+         if (resetDots) {
+             Maze.loadLayout(MazeLayouts.forLevel(level, mazeMode))
+             lighting.refreshMazeGeometry()
+         }
          ghostAI.startLevel(level)
          applyLevelSpeed()
          dotsEatenThisLevel = 0

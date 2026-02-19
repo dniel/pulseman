@@ -9,6 +9,7 @@ import no.njoh.pulseengine.modules.lighting.direct.DirectShadowType
 import no.njoh.pulseengine.modules.lighting.direct.DirectLightingSystem
 import no.njoh.pulseengine.modules.scene.systems.EntityRendererImpl
 import no.njoh.pulseengine.modules.scene.entities.Lamp
+import no.njoh.pulseengine.core.scene.SceneEntity.Companion.DEAD
 import no.njoh.pulseengine.modules.physics.entities.Box
 import kotlin.math.max
 import kotlin.math.sin
@@ -83,6 +84,7 @@ class LightingManager(private val engine: PulseEngine) {
     private val powerPelletAuraLights = mutableMapOf<Pair<Int, Int>, Lamp>()
     private val eatenGhostConeLights = mutableMapOf<GhostType, LightPair>()
     private val powerPelletConeLights = mutableMapOf<Pair<Int, Int>, LightPair>()
+    private val mazeOccluders = mutableListOf<LightingMazeOccluder>()
 
     /**
      * Initializes the PulseEngine lighting scene: creates the [DirectLightingSystem],
@@ -190,6 +192,15 @@ class LightingManager(private val engine: PulseEngine) {
             )
         }
 
+        createPowerPelletLights()
+    }
+
+    /**
+     * Creates aura and cone light pairs for every power pellet in the current [Maze] grid.
+     * Scans the grid for [Maze.POWER] tiles and places a radial aura light plus a spinning
+     * cone [LightPair] at each position. Must be called again whenever the maze layout changes.
+     */
+    private fun createPowerPelletLights() {
         powerPelletAuraLights.clear()
         powerPelletConeLights.clear()
         for (row in 0 until Maze.ROWS) {
@@ -275,21 +286,46 @@ class LightingManager(private val engine: PulseEngine) {
     }
 
     /** Creates a [LightingMazeOccluder] entity for every wall and ghost-house tile so lights cast shadows. */
-    fun createMazeOccluders() {
+    private fun createMazeOccluders() {
         for (row in 0 until Maze.ROWS) {
             for (col in 0 until Maze.COLS) {
                 if (!Maze.isWallForOutline(col, row)) continue
-                engine.scene.addEntity(
-                    LightingMazeOccluder().apply {
-                        x = Maze.centerX(col)
-                        y = Maze.centerY(row)
-                        width = Maze.TILE.toFloat()
-                        height = Maze.TILE.toFloat()
-                        castShadows = true
-                    }
-                )
+                val occluder = LightingMazeOccluder().apply {
+                    x = Maze.centerX(col)
+                    y = Maze.centerY(row)
+                    width = Maze.TILE.toFloat()
+                    height = Maze.TILE.toFloat()
+                    castShadows = true
+                }
+                engine.scene.addEntity(occluder)
+                mazeOccluders.add(occluder)
             }
         }
+    }
+
+    /**
+     * Rebuilds maze wall occluders and power pellet lights to match the current [Maze] grid.
+     *
+     * Marks all existing [LightingMazeOccluder] entities and power pellet [Lamp] entities
+     * as [DEAD] so the engine removes them on the next update cycle, then creates fresh
+     * entities at the positions defined by the currently loaded [MazeLayout].
+     *
+     * Must be called after [Maze.loadLayout] whenever the maze layout changes (e.g. level
+     * transitions in Ms. Pulse-Man mode) so that shadows and pellet lights match the
+     * visible maze walls.
+     */
+    fun refreshMazeGeometry() {
+        mazeOccluders.forEach { it.set(DEAD) }
+        mazeOccluders.clear()
+
+        powerPelletAuraLights.values.forEach { it.set(DEAD) }
+        powerPelletConeLights.values.forEach { pair ->
+            pair.first.set(DEAD)
+            pair.second.set(DEAD)
+        }
+
+        createMazeOccluders()
+        createPowerPelletLights()
     }
 
     fun setLightingEnabledState(enabled: Boolean) {

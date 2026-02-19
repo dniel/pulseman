@@ -166,6 +166,10 @@ class ServiceMenuManager(
                     val value = item.getter?.invoke()
                     val valueText = when (value) {
                         is SceneBrightness -> value.name
+                        is MazeMode -> when (value) {
+                            MazeMode.CLASSIC -> "CLASSIC"
+                            MazeMode.MS_PULSEMAN -> "MS PULSE-MAN"
+                        }
                         else -> value.toString()
                     }
                     val prefix = if (isSelected) "> " else "  "
