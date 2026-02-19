@@ -5,6 +5,12 @@ import no.njoh.pulseengine.core.shared.primitives.Color
 import kotlin.math.*
 import kotlin.random.Random
 
+/**
+ * Manages the creation, update, and rendering of visual particle effects.
+ *
+ * Includes effects for dots/power pellets being eaten, ghost deaths,
+ * Pac-Man's death, fruit consumption, and ambient environment effects.
+ */
 class ParticleSystem {
     private val particles = mutableListOf<Particle>()
     private var dustEmitAccumulator = 0f
@@ -15,12 +21,18 @@ class ParticleSystem {
     var enhancedGhostExplosionsEnabled = true
     var levelWinConfettiEnabled = true
 
+    /**
+     * Clears all active particles and resets emission accumulators.
+     */
     fun reset() {
         particles.clear()
         dustEmitAccumulator = 0f
         confettiAccumulator = 0f
     }
 
+    /**
+     * Updates all active particles, applying velocity, friction, gravity, and life decay.
+     */
     fun updateParticles(dt: Float) {
         val it = particles.iterator()
         while (it.hasNext()) {
@@ -73,14 +85,17 @@ class ParticleSystem {
         }
     }
 
+    /** Emits a burst of particles when a dot is eaten. */
     fun emitDotParticles(x: Float, y: Float) {
         emitBurst(x, y, count = 14, speedMin = 26f, speedMax = 88f, lifeMin = 0.24f, lifeMax = 0.58f, sizeMin = 1.6f, sizeMax = 3.6f, red = 1f, green = 0.94f, blue = 0.68f)
     }
 
+    /** Emits a burst of particles when a power pellet is eaten. */
     fun emitPowerPelletParticles(x: Float, y: Float) {
         emitBurst(x, y, count = 18, speedMin = 30f, speedMax = 92f, lifeMin = 0.32f, lifeMax = 0.62f, sizeMin = 1.8f, sizeMax = 4.2f, red = 1f, green = 0.98f, blue = 0.7f)
     }
 
+    /** Emits color-coded particles when a ghost is eaten. */
     fun emitGhostEatenParticles(x: Float, y: Float, ghostType: GhostType) {
         if (!enhancedGhostExplosionsEnabled) {
             emitBurst(x, y, count = 22, speedMin = 48f, speedMax = 130f, lifeMin = 0.35f, lifeMax = 0.85f, sizeMin = 2f, sizeMax = 4.8f, red = 1f, green = 1f, blue = 1f)
@@ -90,6 +105,7 @@ class ParticleSystem {
         emitBurst(x, y, count = 28, speedMin = 48f, speedMax = 140f, lifeMin = 0.35f, lifeMax = 0.9f, sizeMin = 2f, sizeMax = 5.2f, red = color.red, green = color.green, blue = color.blue)
     }
 
+    /** Emits a large burst of particles when Pac-Man dies. */
     fun emitDeathParticles(x: Float, y: Float) {
         emitBurst(x, y, count = 56, speedMin = 48f, speedMax = 210f, lifeMin = 0.45f, lifeMax = 1.15f, sizeMin = 2.6f, sizeMax = 7.2f, red = 1f, green = 0.9f, blue = 0.24f)
         emitBurst(x, y, count = 40, speedMin = 30f, speedMax = 145f, lifeMin = 0.55f, lifeMax = 1.35f, sizeMin = 2.4f, sizeMax = 6.4f, red = 1f, green = 0.55f, blue = 0.12f)
@@ -116,6 +132,7 @@ class ParticleSystem {
         }
     }
 
+    /** Emits particles matching the color of the consumed fruit. */
     fun emitFruitParticles(x: Float, y: Float, type: FruitType) {
         val color = when (type) {
             FruitType.CHERRY, FruitType.STRAWBERRY, FruitType.APPLE -> floatArrayOf(0.96f, 0.2f, 0.2f)
@@ -139,6 +156,7 @@ class ParticleSystem {
         )
     }
 
+    /** Emits a trail of particles behind Pac-Man during normal play. */
     fun emitPacTrail(x: Float, y: Float, phase: GamePhase, frightenedTimer: Float) {
         if (phase != GamePhase.PLAYING && phase != GamePhase.ATTRACT_DEMO) return
         if (frightenedTimer > 0f) return // Frightened trail takes over
@@ -154,6 +172,7 @@ class ParticleSystem {
         )
     }
 
+    /** Emits a blue trail behind Pac-Man while ghosts are frightened. */
     fun emitFrightenedTrail(x: Float, y: Float, phase: GamePhase, frightenedTimer: Float) {
         if (!frightenedParticleTrailEnabled) return
         if (frightenedTimer <= 0f) return
@@ -171,6 +190,7 @@ class ParticleSystem {
         )
     }
 
+    /** Periodically emits ambient dust particles within the maze boundaries. */
     fun emitAmbientDust(dt: Float, phase: GamePhase) {
         if (!ambientDustEnabled) return
         if (phase != GamePhase.PLAYING && phase != GamePhase.ATTRACT_DEMO) return
@@ -198,7 +218,7 @@ class ParticleSystem {
     /** One-time burst at Pac-Man's position when level is won. */
     fun emitLevelWinConfetti(x: Float, y: Float) {
         if (!levelWinConfettiEnabled) return
-
+ 
         for ((r, g, b) in CONFETTI_COLORS) {
             emitBurst(x, y, count = 12, speedMin = 80f, speedMax = 260f,
                 lifeMin = 0.8f, lifeMax = 1.5f, sizeMin = 3f, sizeMax = 6f,
@@ -206,7 +226,7 @@ class ParticleSystem {
         }
     }
 
-    /** Call every frame during WON phase to rain confetti across the maze. */
+    /** Emits a continuous stream of confetti from the top of the maze. */
     fun emitContinuousConfetti(dt: Float) {
         if (!levelWinConfettiEnabled) return
 
@@ -235,6 +255,9 @@ class ParticleSystem {
         }
     }
 
+    /**
+     * Renders all active particles to the specified surface.
+     */
     fun renderParticles(s: Surface) {
         if (particles.isEmpty()) return
 

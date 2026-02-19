@@ -4,8 +4,14 @@ import no.njoh.pulseengine.core.PulseEngine
 import no.njoh.pulseengine.core.asset.types.Sound
 import java.io.File
 
+/**
+ * Manages the loading and playback of game sound effects using the PulseEngine audio system.
+ */
 class SoundManager(private val engine: PulseEngine) {
-    
+
+    /**
+     * Loads all required sound assets into the engine's asset manager.
+     */
     fun loadAll() {
         listOf(
             "pacman_beginning",
@@ -17,17 +23,27 @@ class SoundManager(private val engine: PulseEngine) {
             "pacman_intermission",
         ).forEach(::loadAsset)
     }
-    
+
+    /**
+     * Plays the sound effect associated with the given [name].
+     */
     fun play(name: String) {
         engine.audio.playSound(name)
     }
-    
+
+    /**
+     * Resolves the path and loads a single sound asset.
+     */
     private fun loadAsset(name: String) {
         val filename = "$name.ogg"
         val path = resolvePath(filename) ?: return
         engine.asset.load(Sound(path, name))
     }
-    
+
+    /**
+     * Attempts to find the absolute path for a sound file by searching through local
+     * directories and classpath resources. Handles extracting resources from JARs if necessary.
+     */
     private fun resolvePath(filename: String): String? {
         listOf(
             "src/main/resources/$filename",

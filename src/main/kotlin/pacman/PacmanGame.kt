@@ -2,18 +2,18 @@ package pacman
 
 import no.njoh.pulseengine.core.PulseEngine
 import no.njoh.pulseengine.core.PulseEngineGame
-import no.njoh.pulseengine.core.asset.types.Sound
 import no.njoh.pulseengine.core.graphics.api.BlendFunction
-import no.njoh.pulseengine.core.graphics.postprocessing.effects.BloomEffect
-import no.njoh.pulseengine.core.graphics.surface.Surface
 import no.njoh.pulseengine.core.input.Key
-import no.njoh.pulseengine.core.shared.primitives.Color
-import java.io.File
 import kotlin.math.*
-import kotlin.random.Random
 
 fun main() = PulseEngine.run<PacmanGame>()
 
+/**
+ * Main game orchestrator for the Pac-Man application.
+ *
+ * Manages game state transitions, coordinates between subsystems (AI, Rendering, Sound, etc.),
+ * and handles the main game loop through [onFixedUpdate] and [onRender].
+ */
 class PacmanGame : PulseEngineGame() {
 
     private val gameSpeedScale = 0.5f
@@ -35,51 +35,53 @@ class PacmanGame : PulseEngineGame() {
     private var readyTimer = 2f
     private var wonTimer = 0f
     private var levelTransitionTimer = 0f
-     private var deathAnimTimer = 0f
-     private var uiPulseTime = 0f
-    private var wallBevelEnabled = true
-    private var wallOutlineEnabled = true
-    private var wallThinOutlineMode = false
+    private var deathAnimTimer = 0f
+    private var uiPulseTime = 0f
     private var geometryTestOverlayEnabled = false
-     private var wallBevelDebug = false
-     private val particleSystem = ParticleSystem()
-     private var dynamicFrightenedBloomEnabled = true
-     private var serviceMenuOpen = false
-     private var serviceMenuCursorIndex = 1
-     private var bootTestHold = false
-     private lateinit var lighting: LightingManager
+    private val particleSystem = ParticleSystem()
+    private var dynamicFrightenedBloomEnabled = true
+    private var bootTestHold = false
+    private lateinit var lighting: LightingManager
 
-     private val menuItems: List<MenuItem> by lazy { buildMenuItems() }
-     private lateinit var soundManager: SoundManager
-     private lateinit var scoreManager: ScoreManager
-     private lateinit var postProcessing: PostProcessingManager
-     private lateinit var fruitManager: FruitManager
+    private val menuItems: List<MenuItem> by lazy { buildMenuItems() }
+    private lateinit var soundManager: SoundManager
+    private lateinit var scoreManager: ScoreManager
+    private lateinit var postProcessing: PostProcessingManager
+    private lateinit var fruitManager: FruitManager
+    private lateinit var gameplayRenderer: GameplayRenderer
+    private lateinit var screenRenderer: ScreenRenderer
+    private lateinit var hudRenderer: HUDRenderer
+    private lateinit var serviceMenu: ServiceMenuManager
 
-     private var dotsEatenThisLevel = 0
+    private var dotsEatenThisLevel = 0
 
     private val bootDuration = 5f
     private val startScreenDelay = 8f
     private val attractDemoDuration = 10f
 
 
-     override fun onCreate() {
-         engine.config.gameName = "PulsDniel Pacman"
-         engine.config.fixedTickRate = 60f
-         engine.config.targetFps = 60
-         engine.console.runScript("init.pes")
-         engine.console.runScript("init-dev.pes")
-          setupUiSurface()
-         postProcessing = PostProcessingManager(engine)
-         postProcessing.configurePostEffects()
-         soundManager = SoundManager(engine)
-         soundManager.loadAll()
-         scoreManager = ScoreManager()
-         scoreManager.highScore = engine.data.loadObject<HighScoreData>("highscore.json")?.score ?: 0
-         fruitManager = FruitManager(scoreManager, particleSystem, soundManager)
-         lighting = LightingManager(engine)
-         resetGame()
-         lighting.setupSceneLighting()
-     }
+    override fun onCreate() {
+        engine.config.gameName = "PulsDniel Pacman"
+        engine.config.fixedTickRate = 60f
+        engine.config.targetFps = 60
+        engine.console.runScript("init.pes")
+        engine.console.runScript("init-dev.pes")
+        setupUiSurface()
+        postProcessing = PostProcessingManager(engine)
+        postProcessing.configurePostEffects()
+        soundManager = SoundManager(engine)
+        soundManager.loadAll()
+        scoreManager = ScoreManager()
+        scoreManager.highScore = engine.data.loadObject<HighScoreData>("highscore.json")?.score ?: 0
+        fruitManager = FruitManager(scoreManager, particleSystem, soundManager)
+        gameplayRenderer = GameplayRenderer(pacman, ghostAI, fruitManager)
+        screenRenderer = ScreenRenderer(scoreManager)
+        hudRenderer = HUDRenderer(scoreManager)
+        serviceMenu = ServiceMenuManager(menuItems)
+        lighting = LightingManager(engine)
+        resetGame()
+        lighting.setupSceneLighting()
+    }
 
      override fun onDestroy() {
          engine.data.saveObject(HighScoreData(scoreManager.highScore), "highscore.json")
@@ -87,16 +89,11 @@ class PacmanGame : PulseEngineGame() {
 
     override fun onUpdate() {
         if (engine.input.wasClicked(Key.S)) {
-            serviceMenuOpen = !serviceMenuOpen
-            if (serviceMenuOpen) {
-                if (menuItems[serviceMenuCursorIndex].type is MenuItemType.Header) {
-                    serviceMenuCursorIndex = 1
-                }
-            }
+            serviceMenu.toggle()
         }
 
-        if (serviceMenuOpen) {
-            handleServiceMenuInput()
+        if (serviceMenu.isOpen) {
+            serviceMenu.handleInput(engine)
             return
         }
 
@@ -251,26 +248,26 @@ class PacmanGame : PulseEngineGame() {
         MenuItem(
             label = "Wall Bevel",
             type = MenuItemType.Toggle,
-            getter = { wallBevelEnabled },
-            setter = { value -> wallBevelEnabled = value },
+            getter = { gameplayRenderer.wallBevelEnabled },
+            setter = { value -> gameplayRenderer.wallBevelEnabled = value },
         ),
         MenuItem(
             label = "Wall Bevel Debug",
             type = MenuItemType.Toggle,
-            getter = { wallBevelDebug },
-            setter = { value -> wallBevelDebug = value },
+            getter = { gameplayRenderer.wallBevelDebug },
+            setter = { value -> gameplayRenderer.wallBevelDebug = value },
         ),
         MenuItem(
             label = "Wall Outline",
             type = MenuItemType.Toggle,
-            getter = { wallOutlineEnabled },
-            setter = { value -> wallOutlineEnabled = value },
+            getter = { gameplayRenderer.wallOutlineEnabled },
+            setter = { value -> gameplayRenderer.wallOutlineEnabled = value },
         ),
         MenuItem(
             label = "Wall Thin Outline",
             type = MenuItemType.Toggle,
-            getter = { wallThinOutlineMode },
-            setter = { value -> wallThinOutlineMode = value },
+            getter = { gameplayRenderer.wallThinOutlineMode },
+            setter = { value -> gameplayRenderer.wallThinOutlineMode = value },
         ),
         MenuItem(
             label = "DEBUG",
@@ -356,59 +353,14 @@ class PacmanGame : PulseEngineGame() {
          ),
      )
 
-    private fun handleServiceMenuInput() {
-        if (engine.input.wasClicked(Key.UP)) {
-            var nextIndex = serviceMenuCursorIndex - 1
-            if (nextIndex < 0) nextIndex = menuItems.size - 1
-            while (menuItems[nextIndex].type == MenuItemType.Header) {
-                nextIndex--
-                if (nextIndex < 0) nextIndex = menuItems.size - 1
-            }
-            serviceMenuCursorIndex = nextIndex
-        }
-
-        if (engine.input.wasClicked(Key.DOWN)) {
-            var nextIndex = serviceMenuCursorIndex + 1
-            if (nextIndex >= menuItems.size) nextIndex = 0
-            while (menuItems[nextIndex].type == MenuItemType.Header) {
-                nextIndex++
-                if (nextIndex >= menuItems.size) nextIndex = 0
-            }
-            serviceMenuCursorIndex = nextIndex
-        }
-
-        val currentItem = menuItems[serviceMenuCursorIndex]
-
-        if (engine.input.wasClicked(Key.SPACE)) {
-            when (currentItem.type) {
-                MenuItemType.Toggle -> {
-                    val currentValue = currentItem.getter?.invoke() as? Boolean ?: false
-                    currentItem.setter?.invoke(!currentValue)
-                }
-                MenuItemType.Cycle -> {
-                    currentItem.cycleSetter?.invoke()
-                }
-                else -> {}
-            }
-        }
-
-        if (engine.input.wasClicked(Key.LEFT)) {
-            if (currentItem.type == MenuItemType.Slider) {
-                currentItem.sliderSetter?.invoke(-0.1f)
-            }
-        }
-
-        if (engine.input.wasClicked(Key.RIGHT)) {
-            if (currentItem.type == MenuItemType.Slider) {
-                currentItem.sliderSetter?.invoke(0.1f)
-            }
-        }
-    }
-
+    /**
+     * Main simulation loop for fixed-timestep logic.
+     * Handles game state updates, AI, movement, and collisions.
+     */
     override fun onFixedUpdate() {
         val dt = engine.data.fixedDeltaTime
         uiPulseTime += dt
-        if (serviceMenuOpen) return
+        if (serviceMenu.isOpen) return
 
         when (phase) {
             GamePhase.BOOT -> {
@@ -535,10 +487,13 @@ class PacmanGame : PulseEngineGame() {
         ))
     }
 
-     override fun onRender() {
-         val s = engine.gfx.mainSurface
-         val uiSurface = engine.gfx.getSurfaceOrDefault(UI_SURFACE_NAME)
-         val gameplayPhase = isGameplayVisualPhase()
+    /**
+     * Renders the game graphics to the screen and UI surface.
+     */
+    override fun onRender() {
+        val s = engine.gfx.mainSurface
+        val uiSurface = engine.gfx.getSurfaceOrDefault(UI_SURFACE_NAME)
+        val gameplayPhase = isGameplayVisualPhase()
         if (postProcessing.crtEnabled && !postProcessing.hasMainCrtEffect()) {
             postProcessing.ensureCRTEffects()
         } else if (!postProcessing.crtEnabled && postProcessing.hasMainCrtEffect()) {
@@ -560,21 +515,23 @@ class PacmanGame : PulseEngineGame() {
         s.setBackgroundColor(0f, 0f, 0f, 1f)
         if (gameplayPhase) {
             uiSurface.setBackgroundColor(0f, 0f, 0f, 0f)
-            renderMaze(s)
-            if (lighting.entityHaloEnabled) renderEntityBloomHalos(s)
-            renderFruit(s)
-            if (phase != GamePhase.DYING) renderGhosts(s)
-             renderPacman(s)
-             particleSystem.renderParticles(s)
-              scoreManager.render(s)
-              if (geometryTestOverlayEnabled) renderGeometryTestOverlay(s)
-             renderUI(uiSurface)
-         } else {
-             uiSurface.setBackgroundColor(0f, 0f, 0f, 0f)
-             renderStartupScreen(s)
-         }
-         if (serviceMenuOpen) {
-            renderServiceMenu(uiSurface)
+            gameplayRenderer.renderMaze(s, uiPulseTime)
+            if (lighting.entityHaloEnabled) gameplayRenderer.renderEntityBloomHalos(s, uiPulseTime)
+            gameplayRenderer.renderFruit(s)
+            if (phase != GamePhase.DYING) gameplayRenderer.renderGhosts(s)
+            gameplayRenderer.renderPacman(s, phase, deathAnimTimer)
+            particleSystem.renderParticles(s)
+            scoreManager.render(s)
+            if (geometryTestOverlayEnabled) {
+                gameplayRenderer.renderGeometryTestOverlay(s, engine.window.width.toFloat(), engine.window.height.toFloat())
+            }
+            hudRenderer.renderUI(uiSurface, phase, level, lives, uiPulseTime, attractDemoGameOverTimer, engine.window.width, engine.window.height)
+        } else {
+            uiSurface.setBackgroundColor(0f, 0f, 0f, 0f)
+            screenRenderer.renderStartupScreen(s, phase, bootTimer, bootDuration, attractTimer, uiPulseTime, engine.window.width, engine.window.height)
+        }
+        if (serviceMenu.isOpen) {
+            serviceMenu.render(uiSurface, engine.window.width.toFloat(), engine.window.height.toFloat())
         }
     }
 
@@ -595,15 +552,15 @@ class PacmanGame : PulseEngineGame() {
         GamePhase.HI_SCORE,
     )
 
-      private fun resetGame() {
-          serviceMenuOpen = false
-          bootTestHold = false
-          Maze.reset()
-          scoreManager.reset()
-          lives = 3
-          level = 1
-          particleSystem.reset()
-          startLevelState(resetDots = true)
+    private fun resetGame() {
+        serviceMenu.isOpen = false
+        bootTestHold = false
+        Maze.reset()
+        scoreManager.reset()
+        lives = 3
+        level = 1
+        particleSystem.reset()
+        startLevelState(resetDots = true)
         phase = GamePhase.BOOT
         bootTimer = bootDuration
         attractTimer = 6f
@@ -615,17 +572,17 @@ class PacmanGame : PulseEngineGame() {
         lighting.setLightingEnabledState(false)
     }
 
-     private fun startNewGameFromStartup() {
-         serviceMenuOpen = false
-         bootTestHold = false
-         Maze.reset()
-         scoreManager.reset()
-         lives = 3
-         level = 1
-         particleSystem.reset()
-         startLevelState(resetDots = true)
-         beginReadyPhase()
-     }
+    private fun startNewGameFromStartup() {
+        serviceMenu.isOpen = false
+        bootTestHold = false
+        Maze.reset()
+        scoreManager.reset()
+        lives = 3
+        level = 1
+        particleSystem.reset()
+        startLevelState(resetDots = true)
+        beginReadyPhase()
+    }
 
     private fun enterAttractMode() {
         phase = GamePhase.ATTRACT
@@ -647,7 +604,7 @@ class PacmanGame : PulseEngineGame() {
      }
 
     private fun enterStartScreen() {
-        serviceMenuOpen = false
+        serviceMenu.isOpen = false
         phase = GamePhase.TITLE_POINTS
         titlePointsTimer = startScreenDelay
         lighting.setLightingEnabledState(false)
@@ -747,881 +704,48 @@ class PacmanGame : PulseEngineGame() {
                 }
             }
         }
-     }
-
-
-      private fun renderMaze(s: Surface) {
-        val wallColor = floatArrayOf(0.62f, 0.88f, 1f)
-        val thickness = if (wallThinOutlineMode) 1f else 3f
-        val wallBase = when {
-            !wallBevelEnabled -> wallColor
-            wallBevelDebug -> floatArrayOf(0.1f, 0.2f, 0.4f)
-            else -> floatArrayOf(0.14f, 0.26f, 0.5f)
-        }
-        val pelletPulse = 0.5f + 0.5f * sin(uiPulseTime * 4.2f)
-
-        val verticalOpen = Array(Maze.ROWS) { BooleanArray(Maze.COLS + 1) }
-        val horizontalOpen = Array(Maze.ROWS + 1) { BooleanArray(Maze.COLS) }
-        for (row in 0 until Maze.ROWS) {
-            for (col in 0 until Maze.COLS) {
-                if (!Maze.isWallForOutline(col, row)) continue
-                if (!Maze.isWallForOutline(col - 1, row)) verticalOpen[row][col] = true
-                if (!Maze.isWallForOutline(col + 1, row)) verticalOpen[row][col + 1] = true
-                if (!Maze.isWallForOutline(col, row - 1)) horizontalOpen[row][col] = true
-                if (!Maze.isWallForOutline(col, row + 1)) horizontalOpen[row + 1][col] = true
-            }
-        }
-
-        for (row in 0 until Maze.ROWS) {
-            for (col in 0 until Maze.COLS) {
-                val x = Maze.tileX(col)
-                val y = Maze.tileY(row)
-                val tile = Maze.grid[row][col]
-
-                if (Maze.isWalkable(col, row)) {
-                    s.setDrawColor(0f, 0f, 0f, 1f)
-                    s.drawQuad(x, y, Maze.TILE.toFloat(), Maze.TILE.toFloat())
-                }
-
-                when (tile) {
-                    Maze.WALL -> {
-                        val tileSize = Maze.TILE.toFloat()
-                        s.setDrawColor(wallBase[0], wallBase[1], wallBase[2], 1f)
-                        s.drawQuad(x, y, tileSize, tileSize)
-                    }
-
-                    Maze.DOT -> {
-                        s.setDrawColor(1f, 0.95f, 0.78f, 0.18f + pelletPulse * 0.16f)
-                        drawFilledCircle(s, Maze.centerX(col), Maze.centerY(row), 4.8f, 12)
-                        s.setDrawColor(1f, 0.93f, 0.75f, 1f)
-                        drawFilledCircle(s, Maze.centerX(col), Maze.centerY(row), 2.1f, 8)
-                    }
-
-                    Maze.POWER -> {
-                        val cx = Maze.centerX(col)
-                        val cy = Maze.centerY(row)
-                        s.setDrawColor(1f, 0.98f, 0.86f, 0.28f + pelletPulse * 0.22f)
-                        drawFilledCircle(s, cx, cy, 8.8f, 14)
-                        s.setDrawColor(1f, 1f, 1f, 1f)
-                        drawFilledCircle(s, cx, cy, 5f, 14)
-                    }
-
-                    Maze.GHOST_DOOR -> {
-                        s.setDrawColor(1f, 0.7f, 0.8f, 1f)
-                        s.drawQuad(x, y + Maze.TILE / 2f - 2f, Maze.TILE.toFloat(), 4f)
-                    }
-                }
-            }
-        }
-
-        if (wallOutlineEnabled) {
-            s.setDrawColor(wallColor[0], wallColor[1], wallColor[2], 1f)
-            for (row in 0 until Maze.ROWS) {
-                for (xEdge in 0..Maze.COLS) {
-                    if (!verticalOpen[row][xEdge]) continue
-                    val x0 = if (xEdge == 0) Maze.tileX(0) else Maze.tileX(xEdge) - thickness
-                    s.drawQuad(x0, Maze.tileY(row), thickness, Maze.TILE.toFloat())
-                }
-            }
-
-            for (rowEdge in 0..Maze.ROWS) {
-                for (col in 0 until Maze.COLS) {
-                    if (!horizontalOpen[rowEdge][col]) continue
-                    val y0 = if (rowEdge == 0) Maze.tileY(0) else Maze.tileY(rowEdge) - thickness
-                    s.drawQuad(Maze.tileX(col), y0, Maze.TILE.toFloat(), thickness)
-                }
-            }
-
-            if (!wallThinOutlineMode) {
-                for (rowEdge in 0..Maze.ROWS) {
-                    for (xEdge in 0..Maze.COLS) {
-                        val hasVertical = (rowEdge > 0 && verticalOpen[rowEdge - 1][xEdge]) || (rowEdge < Maze.ROWS && verticalOpen[rowEdge][xEdge])
-                        val hasHorizontal = (xEdge > 0 && horizontalOpen[rowEdge][xEdge - 1]) || (xEdge < Maze.COLS && horizontalOpen[rowEdge][xEdge])
-                        if (!hasVertical || !hasHorizontal) continue
-
-                        val px = if (xEdge == 0) Maze.tileX(0) else Maze.tileX(xEdge) - thickness
-                        val py = if (rowEdge == 0) Maze.tileY(0) else Maze.tileY(rowEdge) - thickness
-                        s.drawQuad(px, py, thickness, thickness)
-                    }
-                }
-            }
-        }
     }
 
-    private fun renderPacman(s: Surface) {
-        val px = pacman.pixelX()
-        val py = pacman.pixelY()
-        val radius = (Maze.TILE - 4f) * 0.5f
-
-        if (phase == GamePhase.DYING) {
-            val life = (deathAnimTimer / 1.5f).coerceIn(0f, 1f)
-            val gone = 1f - life
-            val shrink = (1f - gone).coerceAtLeast(0f)
-            val dyingMouth = (0.35f + gone * 0.65f).coerceAtMost(1f)
-            s.setDrawColor(1f, 0.95f, 0f, 1f)
-            drawFilledCircle(s, px, py, radius * shrink, 20)
-            drawPacmanMouthCutout(s, px, py, radius * shrink, if (pacman.dir == Direction.NONE) Direction.RIGHT else pacman.dir, dyingMouth)
-            return
-        }
-
-        s.setDrawColor(1f, 0.95f, 0f, 1f)
-        drawFilledCircle(s, px, py, radius, 20)
-        if (pacman.dir != Direction.NONE) {
-            drawPacmanMouthCutout(s, px, py, radius, pacman.dir, pacman.mouthAngle)
-        }
+    companion object {
+        private const val UI_SURFACE_NAME = "pacman_ui"
     }
-
-    private fun renderGeometryTestOverlay(s: Surface) {
-        val left = Maze.tileX(0)
-        val top = Maze.tileY(0)
-        val width = Maze.COLS * Maze.TILE.toFloat()
-        val height = Maze.ROWS * Maze.TILE.toFloat()
-        val right = left + width
-        val bottom = top + height
-        val centerX = left + width * 0.5f
-        val centerY = top + height * 0.5f
-
-        s.setDrawColor(1f, 0.35f, 0.35f, 0.9f)
-        s.drawLine(left, top, right, top)
-        s.drawLine(left, bottom, right, bottom)
-        s.drawLine(left, top, left, bottom)
-        s.drawLine(right, top, right, bottom)
-
-        s.setDrawColor(0.35f, 1f, 0.4f, 0.9f)
-        s.drawLine(centerX, top, centerX, bottom)
-        s.drawLine(left, centerY, right, centerY)
-
-        s.setDrawColor(0.35f, 0.75f, 1f, 0.85f)
-        val sx0 = 20f
-        val sy0 = 20f
-        val sx1 = engine.window.width - 20f
-        val sy1 = engine.window.height - 20f
-        s.drawLine(sx0, sy0, sx1, sy0)
-        s.drawLine(sx0, sy1, sx1, sy1)
-        s.drawLine(sx0, sy0, sx0, sy1)
-        s.drawLine(sx1, sy0, sx1, sy1)
-    }
-
-    private fun renderEntityBloomHalos(s: Surface) {
-        val pulse = 0.5f + 0.5f * sin(uiPulseTime * 4.3f)
-        val pacX = pacman.pixelX()
-        val pacY = pacman.pixelY()
-        s.setDrawColor(1f, 0.95f, 0.24f, 0.16f + pulse * 0.12f)
-        drawFilledCircle(s, pacX, pacY, 16f + pulse * 3f, 18)
-
-        fruitManager.activeFruit?.let {
-            val fx = Maze.centerX(it.col)
-            val fy = Maze.centerY(it.row)
-            s.setDrawColor(1f, 0.55f, 0.2f, 0.16f + pulse * 0.12f)
-            drawFilledCircle(s, fx, fy, 13f + pulse * 2.5f, 16)
-        }
-
-        for (ghost in ghostAI.ghosts) {
-            if (ghost.mode == GhostMode.EATEN) continue
-            val gx = if (!ghost.released) Maze.centerX(ghost.gridX) else ghostAI.ghostPixelX(ghost)
-            val gy = if (!ghost.released) Maze.centerY(ghost.gridY) else ghostAI.ghostPixelY(ghost)
-            val c = when {
-                ghost.mode == GhostMode.FRIGHTENED -> floatArrayOf(0.45f, 0.58f, 1f)
-                ghost.type == GhostType.BLINKY -> floatArrayOf(1f, 0.24f, 0.24f)
-                ghost.type == GhostType.PINKY -> floatArrayOf(1f, 0.7f, 0.86f)
-                ghost.type == GhostType.INKY -> floatArrayOf(0.24f, 1f, 1f)
-                else -> floatArrayOf(1f, 0.72f, 0.25f)
-            }
-            s.setDrawColor(c[0], c[1], c[2], 0.14f + pulse * 0.1f)
-            drawFilledCircle(s, gx, gy, 14f + pulse * 2f, 16)
-        }
-    }
-
-    private fun renderGhosts(s: Surface) {
-        for (ghost in ghostAI.ghosts) {
-            val gx = if (!ghost.released && ghost.mode != GhostMode.EATEN) Maze.centerX(ghost.gridX) else ghostAI.ghostPixelX(ghost)
-            val gy = if (!ghost.released && ghost.mode != GhostMode.EATEN) Maze.centerY(ghost.gridY) else ghostAI.ghostPixelY(ghost)
-            val size = Maze.TILE - 4f
-
-            if (ghost.mode == GhostMode.EATEN) {
-                drawGhostEyes(s, gx, gy - 1f, ghost.direction, eyeScale = 1.15f)
-                continue
-            }
-
-            setGhostColor(s, ghost)
-            drawGhostBody(s, gx, gy, size)
-
-            if (ghost.mode == GhostMode.FRIGHTENED) {
-                drawFrightenedFace(s, gx, gy)
-            } else {
-                drawGhostEyes(s, gx, gy - 1f, ghost.direction, eyeScale = 1f)
-            }
-        }
-    }
-
-    private fun setGhostColor(s: Surface, ghost: GhostState) {
-        if (ghost.mode == GhostMode.FRIGHTENED) {
-            val flash = ghostAI.frightenedTimer < 2f && ((ghostAI.frightenedTimer * 6f).toInt() % 2 == 0)
-            if (flash) s.setDrawColor(1f, 1f, 1f, 1f)
-            else s.setDrawColor(0.08f, 0.2f, 0.82f, 1f)
-            return
-        }
-
-        when (ghost.type) {
-            GhostType.BLINKY -> s.setDrawColor(0.96f, 0.12f, 0.12f, 1f)
-            GhostType.PINKY -> s.setDrawColor(1f, 0.7f, 0.83f, 1f)
-            GhostType.INKY -> s.setDrawColor(0.1f, 0.92f, 0.95f, 1f)
-            GhostType.CLYDE -> s.setDrawColor(1f, 0.62f, 0.12f, 1f)
-        }
-    }
-
-    private fun drawGhostBody(s: Surface, cx: Float, cy: Float, size: Float) {
-        val radius = size * 0.5f
-        val bodyTop = cy - size * 0.08f
-        val bodyBottom = cy + size * 0.42f
-
-        s.drawWithin(cx - radius, cy - radius, radius * 2f, radius) {
-            drawFilledCircle(s, cx, cy - size * 0.12f, radius, 16)
-        }
-        s.drawQuad(cx - radius, bodyTop, radius * 2f, bodyBottom - bodyTop)
-
-        val bumpRadius = size * 0.15f
-        val baseY = bodyBottom - bumpRadius * 0.6f
-        drawFilledCircle(s, cx - size * 0.3f, baseY, bumpRadius, 8)
-        drawFilledCircle(s, cx, baseY + 0.5f, bumpRadius, 8)
-        drawFilledCircle(s, cx + size * 0.3f, baseY, bumpRadius, 8)
-    }
-
-    private fun drawGhostEyes(s: Surface, cx: Float, cy: Float, dir: Direction, eyeScale: Float) {
-        val eyeOffset = 4.4f * eyeScale
-        val eyeRadius = 2.8f * eyeScale
-        val pupilRadius = 1.45f * eyeScale
-        val pdx = dir.dx * 1.4f
-        val pdy = dir.dy * 1.2f
-
-        s.setDrawColor(1f, 1f, 1f, 1f)
-        drawFilledCircle(s, cx - eyeOffset, cy - 2f, eyeRadius, 10)
-        drawFilledCircle(s, cx + eyeOffset, cy - 2f, eyeRadius, 10)
-
-        s.setDrawColor(0.07f, 0.07f, 0.35f, 1f)
-        drawFilledCircle(s, cx - eyeOffset + pdx, cy - 2f + pdy, pupilRadius, 8)
-        drawFilledCircle(s, cx + eyeOffset + pdx, cy - 2f + pdy, pupilRadius, 8)
-    }
-
-    private fun drawFrightenedFace(s: Surface, cx: Float, cy: Float) {
-        s.setDrawColor(1f, 1f, 1f, 1f)
-        drawFilledCircle(s, cx - 4f, cy - 2f, 1.8f, 6)
-        drawFilledCircle(s, cx + 4f, cy - 2f, 1.8f, 6)
-        val y = cy + 4f
-        s.drawLine(cx - 6f, y, cx - 3f, y - 1f)
-        s.drawLine(cx - 3f, y - 1f, cx, y)
-        s.drawLine(cx, y, cx + 3f, y - 1f)
-        s.drawLine(cx + 3f, y - 1f, cx + 6f, y)
-    }
-
-    private fun renderFruit(s: Surface) {
-        val fruit = fruitManager.activeFruit ?: return
-        val cx = Maze.centerX(fruit.col)
-        val cy = Maze.centerY(fruit.row)
-
-        when (fruit.type) {
-            FruitType.CHERRY -> {
-                s.setDrawColor(0.95f, 0.12f, 0.15f, 1f)
-                drawFilledCircle(s, cx - 2.3f, cy + 1f, 4f, 10)
-                drawFilledCircle(s, cx + 2.3f, cy - 0.3f, 4f, 10)
-                s.setDrawColor(0.2f, 0.9f, 0.3f, 1f)
-                s.drawQuad(cx - 0.8f, cy - 7f, 1.6f, 4.5f)
-            }
-
-            FruitType.STRAWBERRY -> {
-                s.setDrawColor(0.95f, 0.15f, 0.16f, 1f)
-                s.drawQuad(cx - 5f, cy - 2f, 10f, 8f)
-                s.setDrawColor(0.1f, 0.8f, 0.22f, 1f)
-                s.drawQuad(cx - 4f, cy - 6f, 8f, 3f)
-            }
-
-            FruitType.ORANGE -> {
-                s.setDrawColor(1f, 0.55f, 0.1f, 1f)
-                drawFilledCircle(s, cx, cy, 5f, 12)
-            }
-
-            FruitType.APPLE -> {
-                s.setDrawColor(0.9f, 0.12f, 0.16f, 1f)
-                drawFilledCircle(s, cx, cy, 5f, 12)
-                s.setDrawColor(0.22f, 0.95f, 0.3f, 1f)
-                drawFilledCircle(s, cx + 2f, cy - 5.5f, 1.6f, 6)
-            }
-
-            FruitType.MELON -> {
-                s.setDrawColor(0.28f, 0.86f, 0.45f, 1f)
-                drawFilledCircle(s, cx, cy, 5f, 12)
-            }
-
-            FruitType.GALAXIAN -> {
-                s.setDrawColor(0.95f, 0.95f, 0.22f, 1f)
-                drawFilledCircle(s, cx, cy, 5f, 12)
-            }
-
-            FruitType.BELL -> {
-                s.setDrawColor(1f, 0.85f, 0.2f, 1f)
-                drawFilledCircle(s, cx, cy, 5f, 12)
-            }
-
-            FruitType.KEY -> {
-                s.setDrawColor(0.98f, 0.92f, 0.45f, 1f)
-                drawFilledCircle(s, cx, cy, 5f, 12)
-            }
-        }
-    }
-
-     private fun renderUI(s: Surface) {
-         val scoreText = scoreManager.score.toString().padStart(6, '0')
-         val highScoreText = scoreManager.highScore.toString().padStart(6, '0')
-
-        s.setDrawColor(0.95f, 0.95f, 0.95f, 1f)
-        s.drawText("1UP", 20f, 15f, fontSize = 20f)
-        s.drawText(scoreText, 20f, 36f, fontSize = 24f)
-
-        s.drawText("HIGH SCORE", engine.window.width / 2f, 15f, fontSize = 20f, xOrigin = 0.5f)
-        s.drawText(highScoreText, engine.window.width / 2f, 36f, fontSize = 24f, xOrigin = 0.5f)
-
-        s.drawText("LEVEL ${level.toString().padStart(2, '0')}", 640f, 15f, fontSize = 20f)
-        s.drawText("LIVES", 640f, 36f, fontSize = 16f)
-        for (i in 0 until lives) {
-            drawLifeIcon(s, 702f + i * 24f, 45f, 8f)
-        }
-
-        val pulseAlpha = (0.65f + 0.35f * (0.5f + 0.5f * sin(uiPulseTime * 4f))).coerceIn(0.45f, 1f)
-        when (phase) {
-            GamePhase.READY -> {
-                s.setDrawColor(1f, 1f, 0f, pulseAlpha)
-                s.drawText(
-                    "READY!",
-                    engine.window.width / 2f,
-                    Maze.centerY(17),
-                    fontSize = 28f,
-                    xOrigin = 0.5f,
-                    yOrigin = 0.5f,
-                )
-            }
-
-            GamePhase.GAME_OVER -> {
-                s.setDrawColor(1f, 0f, 0f, pulseAlpha)
-                s.drawText(
-                    "GAME OVER",
-                    engine.window.width / 2f,
-                    Maze.centerY(17),
-                    fontSize = 36f,
-                    xOrigin = 0.5f,
-                    yOrigin = 0.5f,
-                )
-                s.setDrawColor(1f, 1f, 1f, 0.7f)
-                s.drawText(
-                    "Press ENTER to restart",
-                    engine.window.width / 2f,
-                    Maze.centerY(17) + 40f,
-                    fontSize = 18f,
-                    xOrigin = 0.5f,
-                    yOrigin = 0.5f,
-                )
-            }
-
-            GamePhase.WON -> {
-                s.setDrawColor(0f, 1f, 0f, pulseAlpha)
-                s.drawText(
-                    "YOU WIN!",
-                    engine.window.width / 2f,
-                    Maze.centerY(17),
-                    fontSize = 36f,
-                    xOrigin = 0.5f,
-                    yOrigin = 0.5f,
-                )
-            }
-
-            GamePhase.LEVEL_TRANSITION -> {
-                s.setDrawColor(0.95f, 0.95f, 0.2f, pulseAlpha)
-                s.drawText(
-                    "LEVEL $level",
-                    engine.window.width / 2f,
-                    Maze.centerY(17),
-                    fontSize = 34f,
-                    xOrigin = 0.5f,
-                    yOrigin = 0.5f,
-                )
-            }
-
-            GamePhase.BOOT, GamePhase.ATTRACT, GamePhase.TITLE_POINTS, GamePhase.HI_SCORE -> return
-
-            GamePhase.ATTRACT_DEMO -> {
-                if (attractDemoGameOverTimer > 0f) {
-                    s.setDrawColor(1f, 0.2f, 0.2f, pulseAlpha)
-                    s.drawText(
-                        "GAME OVER",
-                        engine.window.width / 2f,
-                        Maze.centerY(17),
-                        fontSize = 34f,
-                        xOrigin = 0.5f,
-                        yOrigin = 0.5f,
-                    )
-                    s.setDrawColor(1f, 0.96f, 0.74f, 0.9f)
-                    s.drawText(
-                        "DEMO PLAY",
-                        engine.window.width / 2f,
-                        Maze.centerY(17) + 34f,
-                        fontSize = 16f,
-                        xOrigin = 0.5f,
-                        yOrigin = 0.5f,
-                    )
-                }
-            }
-
-            else -> {}
-        }
-
-        s.setDrawColor(0.55f, 0.55f, 0.55f, 1f)
-        s.drawText(
-            "S: Service Menu",
-            engine.window.width / 2f,
-            engine.window.height - 15f,
-            fontSize = 14f,
-            xOrigin = 0.5f,
-            yOrigin = 0.5f,
-        )
-    }
-
-    private fun renderServiceMenu(s: Surface) {
-        s.setDrawColor(0f, 0f, 0f, 0.85f)
-        s.drawQuad(0f, 0f, engine.window.width.toFloat(), engine.window.height.toFloat())
-
-        val centerX = engine.window.width / 2f
-        val titleY = 60f
-
-        s.setDrawColor(0f, 1f, 1f, 1f)
-        s.drawText("SERVICE MENU", centerX, titleY, fontSize = 38f, xOrigin = 0.5f, yOrigin = 0.5f)
-
-         val startY = 100f
-         val lineHeight = 18f
-         var yOffset = startY
-
-        for (i in menuItems.indices) {
-            val item = menuItems[i]
-            val isSelected = i == serviceMenuCursorIndex
-
-            when (item.type) {
-                MenuItemType.Header -> {
-                    s.setDrawColor(1f, 0.8f, 0f, 1f)
-                    s.drawText(item.label, centerX - 200f, yOffset, fontSize = 18f)
-                }
-                MenuItemType.Toggle -> {
-                    val value = item.getter?.invoke() as? Boolean ?: false
-                    val valueText = if (value) "ON" else "OFF"
-                    val prefix = if (isSelected) "> " else "  "
-
-                    s.setDrawColor(0.9f, 0.9f, 0.9f, 1f)
-                    s.drawText("$prefix${item.label}", centerX - 200f, yOffset, fontSize = 16f)
-
-                     s.setDrawColor(if (value) 0f else 0.5f, if (value) 1f else 0.5f, 0f, 1f)
-                     s.drawText(valueText, centerX + 200f, yOffset, fontSize = 16f)
-                }
-                MenuItemType.Slider -> {
-                    val value = item.getter?.invoke() as? Float ?: 0f
-                    val valueText = "%.1f".format(value)
-                    val prefix = if (isSelected) "> " else "  "
-
-                    s.setDrawColor(0.9f, 0.9f, 0.9f, 1f)
-                    s.drawText("$prefix${item.label}", centerX - 200f, yOffset, fontSize = 16f)
-
-                     s.setDrawColor(0f, 0.8f, 1f, 1f)
-                     s.drawText(valueText, centerX + 200f, yOffset, fontSize = 16f)
-                }
-                MenuItemType.Cycle -> {
-                    val value = item.getter?.invoke()
-                    val valueText = when (value) {
-                        is SceneBrightness -> value.name
-                        else -> value.toString()
-                    }
-                    val prefix = if (isSelected) "> " else "  "
-
-                    s.setDrawColor(0.9f, 0.9f, 0.9f, 1f)
-                    s.drawText("$prefix${item.label}", centerX - 200f, yOffset, fontSize = 16f)
-
-                     s.setDrawColor(1f, 0.7f, 0f, 1f)
-                     s.drawText(valueText, centerX + 200f, yOffset, fontSize = 16f)
-                }
-            }
-
-            yOffset += lineHeight
-        }
-
-        s.setDrawColor(0.7f, 0.7f, 0.7f, 1f)
-        s.drawText(
-            "UP/DOWN: Navigate   SPACE: Toggle   LEFT/RIGHT: Adjust   S: Close",
-            centerX,
-            engine.window.height - 40f,
-            fontSize = 14f,
-            xOrigin = 0.5f,
-            yOrigin = 0.5f,
-        )
-    }
-
-    private fun renderStartupScreen(s: Surface) {
-        when (phase) {
-            GamePhase.BOOT -> renderBootScreen(s)
-            GamePhase.ATTRACT -> renderAttractScreen(s)
-            GamePhase.TITLE_POINTS -> renderTitlePointsScreen(s)
-            GamePhase.HI_SCORE -> renderHiScoreScreen(s)
-            else -> {}
-        }
-    }
-
-     private fun renderBootScreen(s: Surface) {
-        val centerX = engine.window.width / 2f
-        val centerY = engine.window.height / 2f
-        val elapsed = (bootDuration - bootTimer).coerceIn(0f, bootDuration)
-        val pct = ((elapsed / bootDuration) * 100f).toInt().coerceIn(0, 100)
-
-        if (elapsed >= 2.35f && elapsed < 3.45f) {
-            renderBootVideoTestScreen(s, elapsed)
-            return
-        }
-
-        drawGlowText(s, "PULSE ENGINE SYSTEM I", centerX, centerY - 120f, fontSize = 26f, red = 0.72f, green = 0.9f, blue = 1f, xOrigin = 0.5f, yOrigin = 0.5f)
-        s.setDrawColor(0.72f, 0.9f, 1f, 1f)
-        s.drawText("PULSE ENGINE SYSTEM I", centerX, centerY - 120f, fontSize = 26f, xOrigin = 0.5f, yOrigin = 0.5f)
-
-        s.setDrawColor(0.95f, 0.95f, 0.95f, 1f)
-        s.drawText("POWER ON SELF TEST", centerX, centerY - 78f, fontSize = 18f, xOrigin = 0.5f, yOrigin = 0.5f)
-
-        val left = centerX - 170f
-        if (elapsed >= 0.7f) {
-            s.setDrawColor(0.85f, 0.95f, 1f, 1f)
-            s.drawText("RAM CHECK ....", left, centerY - 34f, fontSize = 16f)
-            if (elapsed >= 1.3f) {
-                s.setDrawColor(0.95f, 0.95f, 0.3f, 1f)
-                s.drawText("OK", left + 175f, centerY - 34f, fontSize = 16f)
-            }
-        }
-
-        if (elapsed >= 1.6f) {
-            s.setDrawColor(0.85f, 0.95f, 1f, 1f)
-            s.drawText("ROM CHECK ....", left, centerY - 8f, fontSize = 16f)
-            if (elapsed >= 2.3f) {
-                s.setDrawColor(0.95f, 0.95f, 0.3f, 1f)
-                s.drawText("OK", left + 175f, centerY - 8f, fontSize = 16f)
-            }
-        }
-
-        if (elapsed >= 2.6f) {
-            s.setDrawColor(0.85f, 0.95f, 1f, 1f)
-            s.drawText("VIDEO CHECK ..", left, centerY + 18f, fontSize = 16f)
-            if (elapsed >= 3.2f) {
-                s.setDrawColor(0.95f, 0.95f, 0.3f, 1f)
-                s.drawText("OK", left + 175f, centerY + 18f, fontSize = 16f)
-            }
-        }
-
-        if (elapsed >= 3.5f) {
-            s.setDrawColor(0.85f, 0.95f, 1f, 1f)
-            s.drawText("SOUND CHECK ..", left, centerY + 44f, fontSize = 16f)
-            if (elapsed >= 4.1f) {
-                s.setDrawColor(0.95f, 0.95f, 0.3f, 1f)
-                s.drawText("OK", left + 175f, centerY + 44f, fontSize = 16f)
-            }
-        }
-
-        s.setDrawColor(0.9f, 0.9f, 0.9f, 1f)
-        s.drawText("PROGRESS ${pct.toString().padStart(3, '0')}%", centerX, centerY + 84f, fontSize = 16f, xOrigin = 0.5f, yOrigin = 0.5f)
-
-        if (elapsed >= 4.4f) {
-            s.setDrawColor(0.95f, 0.35f, 0.35f, 1f)
-            s.drawText("2026 PULSE ENGINE LTD.", centerX, centerY + 116f, fontSize = 16f, xOrigin = 0.5f, yOrigin = 0.5f)
-        }
-    }
-
-    private fun renderBootVideoTestScreen(s: Surface, elapsed: Float) {
-        val width = engine.window.width.toFloat()
-        val height = engine.window.height.toFloat()
-        val left = 92f
-        val top = 90f
-        val right = width - 92f
-        val bottom = height - 110f
-        val areaW = right - left
-        val areaH = bottom - top
-        val line = 1.5f
-
-        s.setDrawColor(0.02f, 0.03f, 0.05f, 1f)
-        s.drawQuad(0f, 0f, width, height)
-
-        s.setDrawColor(0.86f, 0.9f, 0.95f, 1f)
-        s.drawQuad(left, top, areaW, line)
-        s.drawQuad(left, bottom - line, areaW, line)
-        s.drawQuad(left, top, line, areaH)
-        s.drawQuad(right - line, top, line, areaH)
-
-        val spacing = 28f
-        var gx = left + spacing
-        while (gx < right - spacing) {
-            s.drawQuad(gx, top, line, areaH)
-            gx += spacing
-        }
-        var gy = top + spacing
-        while (gy < bottom - spacing) {
-            s.drawQuad(left, gy, areaW, line)
-            gy += spacing
-        }
-
-        val colors = arrayOf(
-            floatArrayOf(1f, 0.15f, 0.15f),
-            floatArrayOf(1f, 0.85f, 0.15f),
-            floatArrayOf(0.35f, 1f, 0.35f),
-            floatArrayOf(0.2f, 1f, 1f),
-            floatArrayOf(0.3f, 0.5f, 1f),
-            floatArrayOf(0.9f, 0.25f, 0.95f),
-        )
-
-        val horizontalBarsY = top + 14f
-        val horizontalBarH = 32f
-        val horizontalBarW = areaW / colors.size
-        for (i in colors.indices) {
-            val c = colors[i]
-            s.setDrawColor(c[0], c[1], c[2], 1f)
-            s.drawQuad(left + i * horizontalBarW, horizontalBarsY, horizontalBarW + 1f, horizontalBarH)
-        }
-
-        val barW = 18f
-        val barX = width * 0.5f - barW * 0.5f
-        val sectionH = areaH / 6f
-        for (i in colors.indices) {
-            val c = colors[i]
-            s.setDrawColor(c[0], c[1], c[2], 1f)
-            s.drawQuad(barX, top + i * sectionH, barW, sectionH + 1f)
-        }
-
-        val cx = (left + right) * 0.5f
-        val cy = (top + bottom) * 0.5f + 18f
-        s.setDrawColor(1f, 1f, 1f, 0.95f)
-        s.drawLine(cx - 120f, cy, cx + 120f, cy)
-        s.drawLine(cx, cy - 120f, cx, cy + 120f)
-        drawFilledCircle(s, cx, cy, 90f, 40)
-        s.setDrawColor(0.02f, 0.03f, 0.05f, 1f)
-        drawFilledCircle(s, cx, cy, 88f, 40)
-        s.setDrawColor(1f, 1f, 1f, 0.95f)
-        drawFilledCircle(s, cx, cy, 56f, 36)
-        s.setDrawColor(0.02f, 0.03f, 0.05f, 1f)
-        drawFilledCircle(s, cx, cy, 54f, 36)
-
-        s.setDrawColor(0.9f, 0.95f, 1f, 1f)
-        s.drawText("VIDEO TEST: GEOMETRY + RGB", width * 0.5f, 42f, fontSize = 20f, xOrigin = 0.5f, yOrigin = 0.5f)
-        val flash = 0.75f + 0.25f * sin(elapsed * 18f)
-        s.setDrawColor(0.95f, 0.95f, 0.3f, flash)
-        s.drawText("SIGNAL OK", width * 0.5f, height - 58f, fontSize = 18f, xOrigin = 0.5f, yOrigin = 0.5f)
-    }
-
-    private fun renderAttractScreen(s: Surface) {
-        val centerX = engine.window.width / 2f
-        val y0 = engine.window.height / 2f - 110f
-        drawGlowText(s, "CHARACTER / NICKNAME", centerX, y0, fontSize = 28f, red = 1f, green = 0.3f, blue = 0.3f, xOrigin = 0.5f)
-        s.setDrawColor(1f, 0.3f, 0.3f, 1f)
-        s.drawText("CHARACTER / NICKNAME", centerX, y0, fontSize = 28f, xOrigin = 0.5f)
-
-        val elapsed = (6f - attractTimer).coerceIn(0f, 6f)
-        val cards = listOf(
-            Triple("SHADOW", "-OIKAKE AKABEI", floatArrayOf(1f, 0.2f, 0.2f)),
-            Triple("SPEEDY", "-MACHIBUSE PINKY", floatArrayOf(1f, 0.68f, 0.86f)),
-            Triple("BASHFUL", "-KIMAGURE AOKU", floatArrayOf(0.2f, 1f, 1f)),
-            Triple("POKEY", "-OTOBOKE GUZUTA", floatArrayOf(1f, 0.72f, 0.2f)),
-        )
-        for (i in cards.indices) {
-            if (elapsed < i * 1.2f) break
-            val (name, nick, c) = cards[i]
-            val y = y0 + 46f + i * 40f
-            val gx = centerX - 188f
-            s.setDrawColor(c[0], c[1], c[2], 1f)
-            drawGhostBody(s, gx, y + 4f, 20f)
-            drawGhostEyes(s, gx, y + 2f, Direction.LEFT, eyeScale = 0.8f)
-            s.setDrawColor(c[0], c[1], c[2], 1f)
-            s.drawText(name, centerX - 155f, y, fontSize = 22f)
-            s.setDrawColor(0.9f, 0.9f, 0.9f, 0.95f)
-            s.drawText(nick, centerX - 20f, y, fontSize = 18f)
-        }
-    }
-
-    private fun renderTitlePointsScreen(s: Surface) {
-        s.setDrawColor(0f, 0f, 0f, 0.5f)
-        s.drawQuad(0f, 0f, engine.window.width.toFloat(), engine.window.height.toFloat())
-
-        val centerX = engine.window.width / 2f
-        val centerY = engine.window.height / 2f
-
-        drawGlowText(s, "PACMAN", centerX, centerY - 120f, fontSize = 72f, red = 1f, green = 0.95f, blue = 0f, xOrigin = 0.5f, yOrigin = 0.5f)
-        s.setDrawColor(1f, 0.95f, 0f, 1f)
-        s.drawText("PACMAN", centerX, centerY - 120f, fontSize = 72f, xOrigin = 0.5f, yOrigin = 0.5f)
-
-        s.setDrawColor(0.2f, 0.8f, 1f, 1f)
-        s.drawText("© 2026 PULSE ENGINE LTD.", centerX, centerY - 65f, fontSize = 20f, xOrigin = 0.5f, yOrigin = 0.5f)
-
-        val ghostColors = listOf(
-            floatArrayOf(1f, 0.2f, 0.2f),
-            floatArrayOf(1f, 0.68f, 0.86f),
-            floatArrayOf(0.2f, 1f, 1f),
-            floatArrayOf(1f, 0.72f, 0.2f),
-        )
-        val ghostY = centerY - 22f
-        val ghostSpacing = 62f
-        val ghostStartX = centerX - ghostSpacing * 1.5f
-        for (i in ghostColors.indices) {
-            val color = ghostColors[i]
-            val x = ghostStartX + ghostSpacing * i
-            s.setDrawColor(color[0], color[1], color[2], 1f)
-            drawGhostBody(s, x, ghostY + 4f, 22f)
-            drawGhostEyes(s, x, ghostY + 2f, Direction.LEFT, eyeScale = 0.85f)
-        }
-
-        s.setDrawColor(0.9f, 0.9f, 0.9f, 0.9f)
-        s.drawText("10 PTS", centerX - 70f, centerY + 26f, fontSize = 22f, xOrigin = 1f, yOrigin = 0.5f)
-        s.drawText("DOT", centerX - 55f, centerY + 26f, fontSize = 22f, xOrigin = 0f, yOrigin = 0.5f)
-        s.drawText("50 PTS", centerX - 70f, centerY + 57f, fontSize = 22f, xOrigin = 1f, yOrigin = 0.5f)
-        s.drawText("POWER PELLET", centerX - 55f, centerY + 57f, fontSize = 22f, xOrigin = 0f, yOrigin = 0.5f)
-
-        val blink = (0.35f + 0.65f * (0.5f + 0.5f * sin(uiPulseTime * 5f))).coerceIn(0.2f, 1f)
-        s.setDrawColor(1f, 1f, 1f, blink)
-        s.drawText("PRESS ENTER TO START", centerX, centerY + 122f, fontSize = 24f, xOrigin = 0.5f, yOrigin = 0.5f)
-    }
-
-    private fun renderHiScoreScreen(s: Surface) {
-        val centerX = engine.window.width / 2f
-        val centerY = engine.window.height / 2f
-
-        s.setDrawColor(0f, 0f, 0f, 0.5f)
-        s.drawQuad(0f, 0f, engine.window.width.toFloat(), engine.window.height.toFloat())
-
-        drawGlowText(s, "HIGH SCORES", centerX, centerY - 120f, fontSize = 56f, red = 1f, green = 0.95f, blue = 0.1f, xOrigin = 0.5f, yOrigin = 0.5f)
-        s.setDrawColor(1f, 0.95f, 0.1f, 1f)
-        s.drawText("HIGH SCORES", centerX, centerY - 120f, fontSize = 56f, xOrigin = 0.5f, yOrigin = 0.5f)
-
-         val rows = listOf(
-             "1ST  PLAYER   ${scoreManager.highScore.toString().padStart(6, '0')}",
-             "2ND  AAA      020000",
-            "3RD  BBB      015000",
-            "4TH  CCC      010000",
-            "5TH  DDD      005000",
-        )
-        rows.forEachIndexed { i, row ->
-            val alpha = 0.75f + 0.25f * sin(uiPulseTime * 2f + i * 0.4f)
-            s.setDrawColor(0.9f, 0.95f, 1f, alpha)
-            s.drawText(row, centerX, centerY - 30f + i * 34f, fontSize = 24f, xOrigin = 0.5f, yOrigin = 0.5f)
-        }
-
-        s.setDrawColor(1f, 1f, 1f, 0.8f)
-        s.drawText("PRESS ENTER TO START", centerX, centerY + 150f, fontSize = 22f, xOrigin = 0.5f, yOrigin = 0.5f)
-    }
-
-    private fun drawGlowText(
-        s: Surface,
-        text: String,
-        x: Float,
-        y: Float,
-        fontSize: Float,
-        red: Float,
-        green: Float,
-        blue: Float,
-        xOrigin: Float = 0f,
-        yOrigin: Float = 0f,
-    ) {
-        s.setDrawColor(red, green, blue, 0.16f)
-        s.drawText(text, x - 3f, y, fontSize = fontSize, xOrigin = xOrigin, yOrigin = yOrigin)
-        s.drawText(text, x + 3f, y, fontSize = fontSize, xOrigin = xOrigin, yOrigin = yOrigin)
-        s.drawText(text, x, y - 3f, fontSize = fontSize, xOrigin = xOrigin, yOrigin = yOrigin)
-        s.drawText(text, x, y + 3f, fontSize = fontSize, xOrigin = xOrigin, yOrigin = yOrigin)
-        s.setDrawColor(red, green, blue, 0.1f)
-        s.drawText(text, x - 6f, y, fontSize = fontSize, xOrigin = xOrigin, yOrigin = yOrigin)
-        s.drawText(text, x + 6f, y, fontSize = fontSize, xOrigin = xOrigin, yOrigin = yOrigin)
-        s.drawText(text, x, y - 6f, fontSize = fontSize, xOrigin = xOrigin, yOrigin = yOrigin)
-        s.drawText(text, x, y + 6f, fontSize = fontSize, xOrigin = xOrigin, yOrigin = yOrigin)
-    }
-
-    private fun drawLifeIcon(s: Surface, x: Float, y: Float, radius: Float) {
-        s.setDrawColor(1f, 0.95f, 0f, 1f)
-        drawFilledCircle(s, x, y, radius, 14)
-        drawPacmanMouthCutout(s, x, y, radius, Direction.RIGHT, 0.45f)
-    }
-
-    private fun drawFilledCircle(s: Surface, cx: Float, cy: Float, radius: Float, segments: Int = 20) {
-        if (radius <= 0.5f) return
-        val step = (radius * 2f) / segments
-        for (i in 0..segments) {
-            val y = cy - radius + i * step
-            val dy = y - cy
-            val halfWidth = sqrt((radius * radius - dy * dy).coerceAtLeast(0f))
-            s.drawQuad(cx - halfWidth, y, halfWidth * 2f, step + 0.3f)
-        }
-    }
-
-    private fun drawPacmanMouthCutout(s: Surface, cx: Float, cy: Float, radius: Float, dir: Direction, open: Float) {
-        val openness = open.coerceIn(0.05f, 1f)
-        val samples = 12
-        val step = radius / samples
-        val maxHalf = radius * (0.18f + 0.7f * openness)
-
-        s.setDrawColor(0f, 0f, 0f, 1f)
-        when (dir) {
-            Direction.RIGHT -> {
-                for (i in 0..samples) {
-                    val dx = i * step
-                    val h = maxHalf * (dx / radius)
-                    s.drawQuad(cx + dx, cy - h, step + 0.8f, h * 2f + 0.8f)
-                }
-            }
-
-            Direction.LEFT -> {
-                for (i in 0..samples) {
-                    val dx = i * step
-                    val h = maxHalf * (dx / radius)
-                    s.drawQuad(cx - dx - step, cy - h, step + 0.8f, h * 2f + 0.8f)
-                }
-            }
-
-            Direction.UP -> {
-                for (i in 0..samples) {
-                    val dy = i * step
-                    val w = maxHalf * (dy / radius)
-                    s.drawQuad(cx - w, cy - dy - step, w * 2f + 0.8f, step + 0.8f)
-                }
-            }
-
-            Direction.DOWN -> {
-                for (i in 0..samples) {
-                    val dy = i * step
-                    val w = maxHalf * (dy / radius)
-                    s.drawQuad(cx - w, cy + dy, w * 2f + 0.8f, step + 0.8f)
-                }
-            }
-
-            Direction.NONE -> {}
-        }
-    }
-
-    sealed interface MenuItemType {
-        data object Toggle : MenuItemType
-        data object Slider : MenuItemType
-        data object Cycle : MenuItemType
-        data object Header : MenuItemType
-    }
-
-    data class MenuItem(
-        val label: String,
-        val type: MenuItemType,
-        val getter: (() -> Any)? = null,
-        val setter: ((Boolean) -> Unit)? = null,
-        val sliderSetter: ((Float) -> Unit)? = null,
-        val cycleSetter: (() -> Unit)? = null,
-    )
-
-     companion object {
-          private const val UI_SURFACE_NAME = "pacman_ui"
-      }
 }
 
+/**
+ * Phases of the game life cycle, controlling which logic and rendering paths are active.
+ *
+ * Startup sequence: [BOOT] → [ATTRACT] → [HI_SCORE] → [ATTRACT_DEMO] → (loop to [TITLE_POINTS] → [ATTRACT]).
+ * Gameplay sequence: [READY] → [PLAYING] → [WON]/[DYING] → [LEVEL_TRANSITION]/[GAME_OVER].
+ */
 enum class GamePhase { BOOT, ATTRACT, ATTRACT_DEMO, TITLE_POINTS, HI_SCORE, READY, PLAYING, DYING, LEVEL_TRANSITION, GAME_OVER, WON }
+
+/**
+ * Behavioral state of a ghost, determining its movement target and vulnerability.
+ *
+ * - [SCATTER] — ghost retreats to its assigned corner target.
+ * - [CHASE] — ghost actively pursues Pac-Man using its personality-specific targeting.
+ * - [FRIGHTENED] — ghost moves randomly and can be eaten by Pac-Man (triggered by power pellet).
+ * - [EATEN] — ghost's eyes return to the ghost house via BFS shortest path for respawn.
+ */
 enum class GhostMode { SCATTER, CHASE, FRIGHTENED, EATEN }
+
+/**
+ * The four ghost characters, each with unique chase targeting in [GhostAISystem]:
+ *
+ * - [BLINKY] (red) — targets Pac-Man's current tile directly.
+ * - [PINKY] (pink) — targets 4 tiles ahead of Pac-Man's facing direction.
+ * - [INKY] (cyan) — uses a vector from Blinky through 2 tiles ahead of Pac-Man, doubled.
+ * - [CLYDE] (orange) — chases like Blinky when far, scatters when within 8 tiles.
+ */
 enum class GhostType { BLINKY, PINKY, INKY, CLYDE }
+
+/** User-selectable scene brightness levels, controlling the ambient light color in [LightingManager]. */
 enum class SceneBrightness { LOW, MEDIUM, HIGH }
 
+/**
+ * Bonus fruit types that appear at dot-count thresholds, with escalating point values.
+ * Higher-level fruits appear on later levels via [FruitManager].
+ */
 enum class FruitType(val score: Int) {
     CHERRY(100),
     STRAWBERRY(300),
@@ -1633,6 +757,17 @@ enum class FruitType(val score: Int) {
     KEY(5000),
 }
 
+/**
+ * Mutable state of a single ghost, updated each frame by [GhostAISystem].
+ *
+ * @property gridX Current tile column.
+ * @property gridY Current tile row.
+ * @property direction Movement direction for interpolation between tiles.
+ * @property mode Current behavioral mode (scatter, chase, frightened, eaten).
+ * @property progress Interpolation fraction (0–1) between current tile and next tile.
+ * @property released Whether the ghost has left the ghost house and is active on the maze.
+ * @property releaseTimer Countdown until automatic release from the ghost house.
+ */
 data class GhostState(
     val type: GhostType,
     var gridX: Int,
@@ -1644,6 +779,7 @@ data class GhostState(
     var releaseTimer: Float,
 )
 
+/** Active bonus fruit on the maze, managed by [FruitManager]. Disappears when [timer] expires. */
 data class FruitState(
     val type: FruitType,
     val col: Int,
@@ -1651,6 +787,7 @@ data class FruitState(
     var timer: Float,
 )
 
+/** Floating score text that drifts upward and fades out, rendered by [ScoreManager]. */
 data class ScorePopup(
     val x: Float,
     var y: Float,
@@ -1658,6 +795,7 @@ data class ScorePopup(
     var timer: Float,
 )
 
+/** A single visual particle with position, velocity, color, and lifetime, managed by [ParticleSystem]. */
 data class Particle(
     var x: Float,
     var y: Float,
@@ -1671,4 +809,5 @@ data class Particle(
     val blue: Float,
 )
 
+/** Serializable high score persisted to `highscore.json` between game sessions. */
 data class HighScoreData(val score: Int)

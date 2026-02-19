@@ -2,6 +2,12 @@ package pacman
 
 import kotlin.math.*
 
+/**
+ * Controls Pac-Man's movement, animation, and AI behavior during attract mode.
+ *
+ * This controller manages grid-based movement, mouth animation cycles,
+ * and includes a 3-step lookahead AI used when the game is in attract mode.
+ */
 class PacmanController(
     private val pacSpeed: Float,
     private val gameSpeedScale: Float,
@@ -22,6 +28,9 @@ class PacmanController(
     var mouthOpening = true
         private set
 
+    /**
+     * Resets Pac-Man to a specified starting position and direction.
+     */
     fun reset(startX: Int = Maze.PAC_START_X, startY: Int = Maze.PAC_START_Y, startDir: Direction = Direction.NONE) {
         gridX = startX
         gridY = startY
@@ -30,6 +39,10 @@ class PacmanController(
         progress = 0f
     }
 
+    /**
+     * Updates Pac-Man's position based on the current direction and speed.
+     * Handles wrapping at tunnel exits and triggers dot consumption and fruit checks.
+     */
     fun updatePacman(
         dt: Float,
         onDotEaten: (col: Int, row: Int) -> Unit,
@@ -64,6 +77,10 @@ class PacmanController(
         }
     }
 
+    /**
+     * AI logic for attract mode that looks ahead up to 3 tiles to decide the best direction.
+     * Evaluates positions based on proximity to dots, power pellets, and ghosts.
+     */
     fun updateAttractPacmanControl(ghosts: List<GhostState>) {
         val choices = Maze.availableDirections(gridX, gridY)
         if (choices.isEmpty()) {
@@ -77,6 +94,9 @@ class PacmanController(
         }
     }
 
+    /**
+     * Invalidates the cached BFS grid used for finding the nearest dot.
+     */
     fun invalidateDotCache() {
         cachedNearestDotGrid = null
     }
@@ -197,6 +217,9 @@ class PacmanController(
 
     private data class StepScore(val col: Int, val row: Int, val score: Float, val direction: Direction)
 
+    /**
+     * Updates the mouth opening/closing animation based on delta time.
+     */
     fun updateMouthAnimation(dt: Float) {
         val speed = 12.0f * gameSpeedScale
         if (mouthOpening) {
@@ -214,6 +237,8 @@ class PacmanController(
         }
     }
 
+    /** Returns Pac-Man's current X coordinate in world pixels. */
     fun pixelX(): Float = Maze.centerX(gridX) + dir.dx * progress * Maze.TILE
+    /** Returns Pac-Man's current Y coordinate in world pixels. */
     fun pixelY(): Float = Maze.centerY(gridY) + dir.dy * progress * Maze.TILE
 }

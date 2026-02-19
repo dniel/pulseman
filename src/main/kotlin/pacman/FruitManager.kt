@@ -1,10 +1,15 @@
 package pacman
 
+/**
+ * Manages the spawning, timing, and consumption of bonus fruits.
+ * Fruits spawn twice per level based on the number of dots eaten (70 and 170).
+ */
 class FruitManager(
     private val scoreManager: ScoreManager,
     private val particleSystem: ParticleSystem,
     private val soundManager: SoundManager,
 ) {
+    /** The currently active fruit on the board, or null if no fruit is present. */
     var activeFruit: FruitState? = null
         private set
 
@@ -22,12 +27,18 @@ class FruitManager(
         FruitType.KEY,
     )
 
+    /**
+     * Resets the spawn flags and removes any active fruit.
+     */
     fun reset() {
         activeFruit = null
         fruitSpawn70Done = false
         fruitSpawn170Done = false
     }
 
+    /**
+     * Checks if the number of [dotsEaten] has reached the thresholds for spawning a fruit.
+     */
     fun maybeSpawnFruit(dotsEaten: Int, level: Int) {
         if (!fruitSpawn70Done && dotsEaten >= 70) {
             spawnFruit(level)
@@ -40,6 +51,9 @@ class FruitManager(
         }
     }
 
+    /**
+     * Spawns a fruit below the ghost house. The type of fruit depends on the current [level].
+     */
     private fun spawnFruit(level: Int) {
         if (activeFruit != null) return
         val fruitType = fruitTypeCycle[(level - 1).mod(fruitTypeCycle.size)]
@@ -51,6 +65,9 @@ class FruitManager(
         )
     }
 
+    /**
+     * Updates the active fruit's timer and removes it if its lifetime (10s) has expired.
+     */
     fun updateFruit(dt: Float) {
         val fruit = activeFruit ?: return
         fruit.timer -= dt
@@ -59,6 +76,10 @@ class FruitManager(
         }
     }
 
+    /**
+     * Checks if Pac-Man is at the same grid position as the active fruit.
+     * If so, awards points, triggers effects, and removes the fruit.
+     */
     fun checkFruitCollision(pacGridX: Int, pacGridY: Int): Boolean {
         val fruit = activeFruit ?: return false
         if (pacGridX == fruit.col && pacGridY == fruit.row) {

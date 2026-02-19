@@ -13,11 +13,17 @@ import no.njoh.pulseengine.modules.physics.entities.Box
 import kotlin.math.max
 import kotlin.math.sin
 
+/** A pair of opposing cone [Lamp]s used to create spinning directional light effects around entities. */
 data class LightPair(
     val first: Lamp,
     val second: Lamp,
 )
 
+/**
+ * Immutable snapshot of game state passed to [LightingManager.syncSceneLights] each frame.
+ * Decouples lighting updates from direct game state access so the lighting system
+ * only reads a stable, consistent view of positions, modes, and timers.
+ */
 data class LightingSnapshot(
     val phase: GamePhase,
     val pacX: Float,
@@ -29,6 +35,30 @@ data class LightingSnapshot(
     val uiPulseTime: Float,
 )
 
+/**
+ * Manages the dynamic lighting system using PulseEngine's [DirectLightingSystem].
+ *
+ * Creates and orchestrates multiple light layers to give the maze atmosphere:
+ *
+ * - **Board backlight** — a large radial light behind the entire maze providing base illumination.
+ * - **Entity aura lights** — radial lights that follow Pac-Man, each ghost, active fruit, and
+ *   power pellets, casting soft shadows through maze wall [occluders][LightingMazeOccluder].
+ * - **Cone light pairs** — spinning directional [LightPair]s on eaten ghosts, fruit, and power
+ *   pellets for dramatic visual emphasis.
+ *
+ * ### Ambient color priority
+ * The scene ambient color is determined by a priority chain:
+ * 1. **Fog of war** — near-black ambient for maximum contrast against entity auras
+ * 2. **Frightened mode** — cool blue ambient shift when ghosts are vulnerable
+ * 3. **Scene brightness** — user-selectable LOW / MEDIUM / HIGH base ambient
+ *
+ * ### Lifecycle
+ * Call [setupSceneLighting] once during game init to create the PulseEngine scene, lights, and
+ * occluders. Then call [syncSceneLights] every frame with a [LightingSnapshot] to update all
+ * light positions, intensities, and colors based on current game state.
+ *
+ * All lighting features are individually toggleable via the service menu boolean flags.
+ */
 class LightingManager(private val engine: PulseEngine) {
 
     var lightingEnabled = true
@@ -54,6 +84,11 @@ class LightingManager(private val engine: PulseEngine) {
     private val eatenGhostConeLights = mutableMapOf<GhostType, LightPair>()
     private val powerPelletConeLights = mutableMapOf<Pair<Int, Int>, LightPair>()
 
+    /**
+     * Initializes the PulseEngine lighting scene: creates the [DirectLightingSystem],
+     * board backlight, all entity aura lights, and maze wall occluders.
+     * Must be called once during game initialization after the maze grid is ready.
+     */
     fun setupSceneLighting() {
         engine.scene.createEmptyAndSetActive("pacman-lighting.scn")
         engine.scene.addSystem(EntityRendererImpl())
@@ -87,6 +122,7 @@ class LightingManager(private val engine: PulseEngine) {
         engine.scene.start()
     }
 
+    /** Creates a large radial light centered behind the maze to provide base illumination. */
     private fun addBoardBacklight() {
         val boardWidth = Maze.COLS * Maze.TILE.toFloat()
         val boardHeight = Maze.ROWS * Maze.TILE.toFloat()
@@ -110,6 +146,10 @@ class LightingManager(private val engine: PulseEngine) {
         engine.scene.addEntity(boardBacklight!!)
     }
 
+    /**
+     * Creates all entity-tracking aura lights (Pac-Man, ghosts, fruit, power pellets)
+     * and their associated cone light pairs for spinning visual emphasis.
+     */
     private fun createAuraLights() {
         pacAuraLight = createAuraLamp(
             color = Color(1f, 0.92f, 0.3f, 1f),
@@ -173,6 +213,7 @@ class LightingManager(private val engine: PulseEngine) {
         }
     }
 
+    /** Factory for a radial aura [Lamp] with soft shadows, added to the scene immediately. */
     private fun createAuraLamp(color: Color, radius: Float, size: Float, intensity: Float): Lamp {
         val lamp = Lamp().apply {
             trackParent = false
@@ -192,6 +233,7 @@ class LightingManager(private val engine: PulseEngine) {
         return lamp
     }
 
+    /** Factory for a [LightPair] of opposing linear cone lights (no shadows), used for spinning accents. */
     private fun createConePair(color: Color, radius: Float, size: Float, coneAngle: Float, intensity: Float): LightPair {
         val first = createAuraLamp(color, radius, size, intensity).apply {
             type = DirectLightType.LINEAR
@@ -208,6 +250,7 @@ class LightingManager(private val engine: PulseEngine) {
         return LightPair(first, second)
     }
 
+    /** Returns the signature aura color for a ghost type (red, pink, cyan, orange). */
     fun ghostAuraColor(type: GhostType): Color = when (type) {
         GhostType.BLINKY -> Color(1f, 0.22f, 0.22f, 1f)
         GhostType.PINKY -> Color(1f, 0.7f, 0.86f, 1f)
@@ -215,6 +258,7 @@ class LightingManager(private val engine: PulseEngine) {
         GhostType.CLYDE -> Color(1f, 0.72f, 0.22f, 1f)
     }
 
+    /** Cycles through LOW → MEDIUM → HIGH scene brightness and updates the ambient color. */
     fun cycleSceneBrightness() {
         sceneBrightness = when (sceneBrightness) {
             SceneBrightness.LOW -> SceneBrightness.MEDIUM
@@ -230,6 +274,7 @@ class LightingManager(private val engine: PulseEngine) {
         SceneBrightness.HIGH -> Color(0.24f, 0.24f, 0.3f, 0.98f)
     }
 
+    /** Creates a [LightingMazeOccluder] entity for every wall and ghost-house tile so lights cast shadows. */
     fun createMazeOccluders() {
         for (row in 0 until Maze.ROWS) {
             for (col in 0 until Maze.COLS) {
@@ -257,6 +302,14 @@ class LightingManager(private val engine: PulseEngine) {
         lightingSystem?.targetSurfaces = if (lightingTargetMainEnabled) "main" else ""
     }
 
+    /**
+     * Updates all light positions, intensities, colors, and ambient based on the current
+     * [snapshot] of game state. Called every frame from [PacmanGame.onFixedUpdate].
+     *
+     * During non-gameplay phases all lights are dimmed to zero. During gameplay the method
+     * applies the ambient color priority chain, positions entity auras, handles death-sequence
+     * flickering, and animates spinning cone lights.
+     */
     fun syncSceneLights(snapshot: LightingSnapshot) {
         val pulse = 0.5f + 0.5f * sin(snapshot.uiPulseTime * 3.8f)
         val spin = (snapshot.uiPulseTime * 220f) % 360f
@@ -445,6 +498,11 @@ class LightingManager(private val engine: PulseEngine) {
     private fun ghostPixelY(g: GhostState): Float = Maze.centerY(g.gridY) + g.direction.dy * g.progress * Maze.TILE
 }
 
+/**
+ * A tile-sized box entity that blocks light, creating shadows behind maze walls.
+ * Implements [DirectLightOccluder] so the [DirectLightingSystem] recognizes it as a shadow caster.
+ * Only renders on the occluder surface — invisible on the main game surface.
+ */
 private class LightingMazeOccluder : Box(), DirectLightOccluder {
     override var castShadows = true
 

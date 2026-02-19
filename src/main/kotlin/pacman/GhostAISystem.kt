@@ -2,27 +2,49 @@ package pacman
 
 import kotlin.math.*
 
+/**
+ * Core ghost AI system implementing classic Pac-Man mechanics.
+ *
+ * This system manages ghost movement, targeting logic, and behavioral modes:
+ * - SCATTER: Ghosts head toward their respective home corners.
+ * - CHASE: Ghosts target Pac-Man with unique personalities (Blinky, Pinky, Inky, Clyde).
+ * - FRIGHTENED: Ghosts move randomly at a slower speed.
+ * - EATEN: Ghost eyes return to the ghost house for revival using BFS pathfinding.
+ *
+ * Game rules implemented:
+ * - Wave timing: SCATTER and CHASE modes alternate in 7 predefined waves per level.
+ * - Ghost release: Ghosts are released based on dot counters (Blinky=0, Pinky=7, Inky=17, Clyde=32)
+ *   or a time fallback mechanism.
+ * - Elroy mode: Blinky's speed increases as dots remaining decrease (≤20 dots: +5%, ≤10 dots: +15%).
+ * - Tunnel slowdown: Ghosts move at 60% speed while inside tunnel corridors, unless in EATEN mode.
+ * - Path caching: BFS results for EATEN ghosts are cached to optimize performance.
+ */
 class GhostAISystem(
     private val pacman: PacmanController,
     private val gameSpeedScale: Float,
 ) {
     val ghosts = mutableListOf<GhostState>()
 
+    /** Remaining duration of the current FRIGHTENED mode. */
     var frightenedTimer = 0f
         private set
 
+    /** Counter for ghosts eaten during a single power pellet effect, used to calculate score multipliers. */
     var pelletsEatenForGhostScore = 0
     var dotsRemaining: Int = Int.MAX_VALUE
 
     private var ghostModeTimer = 0f
     private var ghostModeIndex = 0
     private var currentGhostMode = GhostMode.SCATTER
+    /** Timers used as a fallback to release ghosts from the house if dots aren't being eaten. */
     private var ghostReleaseTimers = floatArrayOf(0f, 3f, 6f, 9f)
+    /** Dot count thresholds for releasing ghosts (Blinky, Pinky, Inky, Clyde). */
     private val dotReleaseThresholds = intArrayOf(0, 7, 17, 32)
     private val cachedEatenDir = arrayOfNulls<Direction>(4)
     private val cachedEatenFrom = Array(4) { intArrayOf(-1, -1) }
 
     private val eatenGhostSpeed = 12f * gameSpeedScale
+    /** Sequence of SCATTER/CHASE waves and their durations in seconds. */
     private val modeSequence = listOf(
         GhostMode.SCATTER to 7f,
         GhostMode.CHASE to 20f,
@@ -32,6 +54,10 @@ class GhostAISystem(
         GhostMode.CHASE to Float.MAX_VALUE,
     )
 
+    /**
+     * Initializes the AI system for a new level.
+     * Resets wave timers and calculates ghost release delays based on the current level.
+     */
     fun startLevel(level: Int) {
         ghostModeIndex = 0
         currentGhostMode = modeSequence[0].first
@@ -44,6 +70,9 @@ class GhostAISystem(
             .toFloatArray()
     }
 
+    /**
+     * Resets all ghosts to their starting positions and states.
+     */
     fun resetPositions() {
         clearEatenPathCache()
         ghosts.clear()
@@ -64,6 +93,10 @@ class GhostAISystem(
         }
     }
 
+    /**
+     * Activates FRIGHTENED mode for all released ghosts.
+     * Ghosts immediately reverse direction and move at a reduced speed.
+     */
     fun activateFrightened(level: Int) {
         frightenedTimer = frightenedDurationForLevel(level)
         pelletsEatenForGhostScore = 0
@@ -76,6 +109,9 @@ class GhostAISystem(
         }
     }
 
+    /**
+     * Updates the ghost AI state, including mode transitions, release mechanics, and movement logic.
+     */
     fun update(dt: Float, level: Int) {
         updateGhostModes(dt, level)
         updateGhosts(dt, level)

@@ -1,5 +1,22 @@
 # Changelog
 
+## v1.5
+
+### Architecture
+- Modularized PacmanGame.kt rendering from ~1675 lines down to ~756 lines
+- Extracted RenderUtils.kt — shared drawing primitives (circles, ghost bodies, glow text)
+- Extracted GameplayRenderer.kt — maze, entity, and overlay rendering
+- Extracted ScreenRenderer.kt — boot, attract, title, and hi-score screen rendering
+- Extracted HUDRenderer.kt — score, lives, and phase text overlay
+- Extracted ServiceMenuManager.kt — service menu UI, input handling, and menu item types
+
+### Documentation
+- Added comprehensive KDoc to all classes and major functions across the codebase
+- GhostAISystem: documented ghost modes, release rules, Elroy mode, tunnel slowdown, BFS caching, scatter/chase wave timing
+- Maze: documented tile types, coordinate system, tunnel row encoding, BFS flood-fill initialization
+- LightingManager: documented light layers, ambient color priority chain, occluder system
+- All enums and data classes: documented game phases, ghost modes, ghost personalities, fruit types, state objects
+
 ## v1.4
 
 ### AI Improvements
