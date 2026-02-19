@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.7
+
+### Level Progression
+- Added ROM-accurate 21-level difficulty table (LevelSpec.kt) sourced from Pac-Man Dossier
+- Per-level Pac-Man speed (normal and frightened) replaces fixed speed
+- Per-level ghost speed (normal, frightened, tunnel) replaces formula approximation
+- Per-level Elroy mode thresholds and speeds for Blinky
+- Per-level frightened duration with authentic non-monotonic pattern (0s on levels 17/19-21+)
+- Per-level frightened ghost flash count (5 or 3 flashes)
+- Three scatter/chase timing patterns matching arcade groups (level 1, 2-4, 5+)
+- ROM-accurate fruit sequence (Key persists from level 13+, no longer cycles)
+- ROM-accurate ghost release dot counters per level
+
+### Build
+- Kotlin 2.2.20 → 2.3.10
+- Gradle 8.13 → 9.3.1
+
+### Documentation
+- Added comprehensive AGENTS.md with build, style, and release instructions
+
 ## v1.6
 
 ### Refactoring
