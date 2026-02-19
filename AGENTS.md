@@ -46,6 +46,8 @@ src/main/kotlin/pulseman/
   PulseManController.kt    # Player movement, animation, attract-mode AI
   GhostAISystem.kt         # Ghost AI — scatter/chase/frightened/eaten modes, BFS pathfinding
   Maze.kt                  # 28x28 tile grid, walkability, coordinate mapping
+  MazeLayout.kt            # Multi-maze system — MazeMode, MazeLayout, 5 layouts (classic + 4 Ms.)
+  LevelSpec.kt             # ROM-accurate 21-level difficulty table
   LightingManager.kt       # Dynamic lighting via PulseEngine DirectLightingSystem
   GameplayRenderer.kt      # Maze, entities, overlay rendering
   ScreenRenderer.kt        # Boot, attract, title, hi-score screens
@@ -149,6 +151,9 @@ src/main/resources/
 - Post-processing effects extend `BaseEffect` with custom GLSL shaders
 - Lighting uses `DirectLightingSystem` with `DirectLightOccluder` entities for shadows
 - Custom shader overrides go in `src/main/resources/pulseengine/shaders/` (same path as JAR resources — classloader picks ours first)
+- **Entity lifecycle**: no `removeEntity()` API — mark entities for removal with `entity.set(SceneEntity.DEAD)`. The engine cleans up DEAD-flagged entities during the next `Scene.update()` cycle. Add entities via `engine.scene.addEntity(entity)`.
+- **Entity queries**: `engine.scene.forEachEntityOfType<T> { }`, `engine.scene.getAllEntitiesOfType<T>()`, `engine.scene.getEntity(id)`
+- **PulseEngine source** is available at `/home/daniel/code/dniel/PulseEngine` and samples at `/home/daniel/code/dniel/PulseEngineGameTemplate` for API reference
 
 ## Common Pitfalls
 
@@ -156,3 +161,4 @@ src/main/resources/
 - Ghost `dotsRemaining` must init to `Int.MAX_VALUE`, not `0` (prevents instant release)
 - Sound files must be `.ogg` format — `SoundManager` extracts from JAR to temp files at runtime
 - Uniform warnings from PulseEngine shaders are suppressed via shader overrides — don't remove the override files in `src/main/resources/pulseengine/`
+- When rebuilding scene entities (e.g. maze occluders on layout change), mark old entities DEAD and create new ones — the engine handles cleanup next frame
