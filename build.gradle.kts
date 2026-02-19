@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "no.dniel"
-version = "1.5"
+version = "1.6"
 
 repositories {
     mavenCentral()
@@ -21,10 +21,10 @@ kotlin {
     jvmToolchain(23)
 }
 
-val mainClass = "pacman.PacmanGameKt"
+val mainClass = "pulseman.PulseManGameKt"
 
 application {
-    mainClass.set("pacman.PacmanGameKt")
+    mainClass.set("pulseman.PulseManGameKt")
 }
 
 tasks.jar {

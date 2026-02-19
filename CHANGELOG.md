@@ -1,9 +1,21 @@
 # Changelog
 
+## v1.6
+
+### Refactoring
+- Renamed all Pac-Man references to Pulse-Man (package, classes, files, sound assets, display strings)
+- Package `pacman` → `pulseman`, classes `PacmanGame` → `PulseManGame`, `PacmanController` → `PulseManController`
+- Sound files `pacman_*.ogg` → `pulseman_*.ogg`
+
+### Fixes
+- Fixed unused `resolution` uniform warning in CRT shader
+- Override PulseEngine lighting shader to fix `edgeCount`/`ambientColor` uniform warnings
+- Added SceneEditor, MetricViewer, GpuMonitor services to engine (F2/F3/F4 dev tools)
+
 ## v1.5
 
 ### Architecture
-- Modularized PacmanGame.kt rendering from ~1675 lines down to ~756 lines
+- Modularized PulseManGame.kt rendering from ~1675 lines down to ~756 lines
 - Extracted RenderUtils.kt — shared drawing primitives (circles, ghost bodies, glow text)
 - Extracted GameplayRenderer.kt — maze, entity, and overlay rendering
 - Extracted ScreenRenderer.kt — boot, attract, title, and hi-score screen rendering
@@ -30,18 +42,18 @@
 ## v1.3
 
 ### Architecture
-- Modularized PacmanGame.kt (2874 lines) into 8 cohesive modules
-- Extracted SoundManager, ScoreManager, PostProcessingManager, ParticleSystem, FruitManager, PacmanController, GhostAISystem, LightingManager
-- PacmanGame.kt reduced to ~1690 lines (41% reduction)
+- Modularized PulseManGame.kt (2874 lines) into 8 cohesive modules
+- Extracted SoundManager, ScoreManager, PostProcessingManager, ParticleSystem, FruitManager, PulseManController, GhostAISystem, LightingManager
+- PulseManGame.kt reduced to ~1690 lines (41% reduction)
 
 ## v1.2
 
 ### Visual Enhancements
 - Frightened mode ambient color shift in lighting
-- Enhanced pac-man aura radius and intensity
+- Enhanced pulse-man aura radius and intensity
 - Enhanced ghost aura radius and intensity
 - Death sequence light flicker effect
-- Frightened mode particle trail (blue particles behind pac-man)
+- Frightened mode particle trail (blue particles behind pulse-man)
 - Ambient floating dust particles
 - Ghost-colored eat explosions (match ghost type color)
 - Level win confetti effect (5-color burst)
@@ -67,7 +79,7 @@
 ## v1.0
 
 ### Core Game
-- Full Pac-Man gameplay: maze, dots, power pellets, fruit, lives, scoring
+- Full Pulse-Man gameplay: maze, dots, power pellets, fruit, lives, scoring
 - 4 ghost personalities with unique targeting (Blinky, Pinky, Inky, Clyde)
 - Scatter/chase/frightened/eaten ghost modes with authentic timing
 - Grid-based movement with turn queueing
@@ -79,7 +91,7 @@
 - Horizontal scanline shader
 - Bloom post-processing
 - Dynamic lighting system with per-entity aura lights and shadow occluders
-- Procedural ghost and pac-man rendering (no sprite sheets)
+- Procedural ghost and pulse-man rendering (no sprite sheets)
 
 ### Audio
 - Sound effects for dot eating, ghost eating, death, fruit collection
