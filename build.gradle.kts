@@ -1,10 +1,10 @@
 plugins {
-    kotlin("jvm") version "2.2.20"
+    kotlin("jvm") version "2.3.10"
     application
 }
 
 group = "no.dniel"
-version = "1.6"
+version = "1.7-SNAPSHOT"
 
 repositories {
     mavenCentral()
