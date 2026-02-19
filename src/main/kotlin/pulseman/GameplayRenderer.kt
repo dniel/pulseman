@@ -160,7 +160,7 @@ class GameplayRenderer(
                 continue
             }
 
-            setGhostColor(s, ghost, ghostAI.frightenedTimer)
+            setGhostColor(s, ghost, ghostAI.frightenedTimer, ghostAI.frightenedFlashes)
             drawGhostBody(s, gx, gy, size)
 
             if (ghost.mode == GhostMode.FRIGHTENED) {

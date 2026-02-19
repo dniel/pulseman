@@ -7,9 +7,10 @@ import kotlin.math.sqrt
  * Sets the drawing color for a ghost based on its type and current state.
  * Handles the flashing blue/white transition when the ghost is in FRIGHTENED mode.
  */
-fun setGhostColor(s: Surface, ghost: GhostState, frightenedTimer: Float) {
+fun setGhostColor(s: Surface, ghost: GhostState, frightenedTimer: Float, frightenedFlashes: Int) {
     if (ghost.mode == GhostMode.FRIGHTENED) {
-        val flash = frightenedTimer < 2f && ((frightenedTimer * 6f).toInt() % 2 == 0)
+        val flashDuration = frightenedFlashes * 0.233f
+        val flash = frightenedTimer < flashDuration && ((frightenedTimer * 7f).toInt() % 2 == 0)
         if (flash) s.setDrawColor(1f, 1f, 1f, 1f)
         else s.setDrawColor(0.08f, 0.2f, 0.82f, 1f)
         return

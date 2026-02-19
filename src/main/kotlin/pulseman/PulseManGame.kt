@@ -21,8 +21,8 @@ fun main() = PulseEngine.run<PulseManGame>()
 class PulseManGame : PulseEngineGame() {
 
     private val gameSpeedScale = 0.5f
-    private val pulseSpeed = 7f * gameSpeedScale
-    private val pulseMan = PulseManController(pulseSpeed, gameSpeedScale)
+    private val maxSpeed = LevelProgression.MAX_SPEED * gameSpeedScale
+    private val pulseMan = PulseManController(maxSpeed * 0.80f, gameSpeedScale)
     private val ghostAI = GhostAISystem(pulseMan, gameSpeedScale)
 
      private var lives = 3
@@ -393,6 +393,7 @@ class PulseManGame : PulseEngineGame() {
              GamePhase.ATTRACT_DEMO -> {
                  attractDemoTimer -= dt
                  updateAttractPulseManControl()
+                 applyLevelSpeed()
                  pulseMan.updatePulseMan(dt, ::eatDotAt) { col, row -> fruitManager.checkFruitCollision(col, row) }
                  particleSystem.emitPulseManTrail(pulseMan.pixelX(), pulseMan.pixelY(), phase, ghostAI.frightenedTimer)
                  particleSystem.emitFrightenedTrail(pulseMan.pixelX(), pulseMan.pixelY(), phase, ghostAI.frightenedTimer)
@@ -425,6 +426,7 @@ class PulseManGame : PulseEngineGame() {
             }
 
              GamePhase.PLAYING -> {
+                 applyLevelSpeed()
                  pulseMan.updatePulseMan(dt, ::eatDotAt) { col, row -> fruitManager.checkFruitCollision(col, row) }
                  particleSystem.emitPulseManTrail(pulseMan.pixelX(), pulseMan.pixelY(), phase, ghostAI.frightenedTimer)
                  particleSystem.emitFrightenedTrail(pulseMan.pixelX(), pulseMan.pixelY(), phase, ghostAI.frightenedTimer)
@@ -629,6 +631,7 @@ class PulseManGame : PulseEngineGame() {
      private fun startLevelState(resetDots: Boolean) {
          if (resetDots) Maze.reset()
          ghostAI.startLevel(level)
+         applyLevelSpeed()
          dotsEatenThisLevel = 0
          pulseMan.invalidateDotCache()
          fruitManager.reset()
@@ -636,7 +639,17 @@ class PulseManGame : PulseEngineGame() {
         resetPositions()
     }
 
-    private fun startNextLevelTransition() {
+    /**
+     * Sets [PulseManController.currentSpeed] to the correct value for the current [level] and game state.
+     * Uses [LevelSpec.pacFrightSpeed] when ghosts are frightened, otherwise [LevelSpec.pacSpeed].
+     */
+    private fun applyLevelSpeed() {
+        val spec = LevelProgression.forLevel(level)
+        val fraction = if (ghostAI.frightenedTimer > 0f) spec.pacFrightSpeed else spec.pacSpeed
+        pulseMan.currentSpeed = fraction * maxSpeed
+    }
+
+        private fun startNextLevelTransition() {
          level++
          startLevelState(resetDots = true)
          phase = GamePhase.LEVEL_TRANSITION

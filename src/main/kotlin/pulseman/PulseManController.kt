@@ -7,9 +7,12 @@ import kotlin.math.*
  *
  * This controller manages grid-based movement, mouth animation cycles,
  * and includes a 3-step lookahead AI used when the game is in attract mode.
+ *
+ * Movement speed is set externally via [currentSpeed] so that [PulseManGame] can apply
+ * the correct per-level speed from [LevelProgression] (normal, frightened, or dots speed).
  */
 class PulseManController(
-    private val pulseSpeed: Float,
+    normalSpeed: Float,
     private val gameSpeedScale: Float,
 ) {
     private var cachedNearestDotGrid: Array<IntArray>? = null
@@ -29,6 +32,13 @@ class PulseManController(
         private set
 
     /**
+     * The speed currently applied to Pulse-Man's movement, in engine tiles per second
+     * (before [gameSpeedScale] is applied internally — this value already includes scale).
+     * Updated by [PulseManGame] each tick based on the current level and game state.
+     */
+    var currentSpeed: Float = normalSpeed
+
+    /**
      * Resets Pulse-Man to a specified starting position and direction.
      */
     fun reset(startX: Int = Maze.PULSE_START_X, startY: Int = Maze.PULSE_START_Y, startDir: Direction = Direction.NONE) {
@@ -40,7 +50,7 @@ class PulseManController(
     }
 
     /**
-     * Updates Pulse-Man's position based on the current direction and speed.
+     * Updates Pulse-Man's position based on [currentSpeed].
      * Handles wrapping at tunnel exits and triggers dot consumption and fruit checks.
      */
     fun updatePulseMan(
@@ -55,7 +65,7 @@ class PulseManController(
             return
         }
 
-        progress += pulseSpeed * dt
+        progress += currentSpeed * dt
         if (progress < 1f) return
 
         val newCol = Maze.wrapCol(gridX + dir.dx)

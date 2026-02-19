@@ -12,11 +12,10 @@ import kotlin.math.*
  * - EATEN: Ghost eyes return to the ghost house for revival using BFS pathfinding.
  *
  * Game rules implemented:
- * - Wave timing: SCATTER and CHASE modes alternate in 7 predefined waves per level.
- * - Ghost release: Ghosts are released based on dot counters (Blinky=0, Pinky=7, Inky=17, Clyde=32)
- *   or a time fallback mechanism.
- * - Elroy mode: Blinky's speed increases as dots remaining decrease (≤20 dots: +5%, ≤10 dots: +15%).
- * - Tunnel slowdown: Ghosts move at 60% speed while inside tunnel corridors, unless in EATEN mode.
+ * - Wave timing: SCATTER and CHASE modes alternate per the ROM-accurate [LevelProgression.SCATTER_CHASE_PATTERNS].
+ * - Ghost release: Ghosts are released based on per-level dot counters from [LevelProgression].
+ * - Elroy mode: Blinky's speed increases as dots remaining decrease, using per-level thresholds from [LevelSpec].
+ * - Tunnel slowdown: Ghosts move at the per-level tunnel speed fraction while inside tunnel corridors.
  * - Path caching: BFS results for EATEN ghosts are cached to optimize performance.
  */
 class GhostAISystem(
@@ -29,45 +28,58 @@ class GhostAISystem(
     var frightenedTimer = 0f
         private set
 
+    /** Number of blue/white flashes before frightened mode ends on the current level. */
+    var frightenedFlashes = 5
+        private set
+
     /** Counter for ghosts eaten during a single power pellet effect, used to calculate score multipliers. */
     var pelletsEatenForGhostScore = 0
     var dotsRemaining: Int = Int.MAX_VALUE
 
+    private val maxSpeed = LevelProgression.MAX_SPEED * gameSpeedScale
     private var ghostModeTimer = 0f
     private var ghostModeIndex = 0
     private var currentGhostMode = GhostMode.SCATTER
     /** Timers used as a fallback to release ghosts from the house if dots aren't being eaten. */
-    private var ghostReleaseTimers = floatArrayOf(0f, 3f, 6f, 9f)
-    /** Dot count thresholds for releasing ghosts (Blinky, Pinky, Inky, Clyde). */
-    private val dotReleaseThresholds = intArrayOf(0, 7, 17, 32)
+    private var ghostReleaseTimers = floatArrayOf(0f, 0f, 0f, 0f)
+    /**
+     * Per-level dot count thresholds for releasing ghosts (Blinky, Pinky, Inky, Clyde).
+     * Blinky always starts outside (threshold 0). Values are loaded from [LevelProgression] in [startLevel].
+     */
+    private var dotReleaseThresholds = intArrayOf(0, 0, 0, 0)
     private val cachedEatenDir = arrayOfNulls<Direction>(4)
     private val cachedEatenFrom = Array(4) { intArrayOf(-1, -1) }
 
     private val eatenGhostSpeed = 12f * gameSpeedScale
-    /** Sequence of SCATTER/CHASE waves and their durations in seconds. */
-    private val modeSequence = listOf(
-        GhostMode.SCATTER to 7f,
-        GhostMode.CHASE to 20f,
-        GhostMode.SCATTER to 7f,
-        GhostMode.CHASE to 20f,
-        GhostMode.SCATTER to 5f,
-        GhostMode.CHASE to Float.MAX_VALUE,
-    )
+
+    /**
+     * Scatter/chase wave sequence for the current level, loaded from [LevelProgression.SCATTER_CHASE_PATTERNS].
+     * Alternates: scatter, chase, scatter, chase, ... with the final chase being infinite.
+     */
+    private var modeSequence: List<Pair<GhostMode, Float>> = emptyList()
 
     /**
      * Initializes the AI system for a new level.
-     * Resets wave timers and calculates ghost release delays based on the current level.
+     * Loads ROM-accurate scatter/chase timing and ghost release thresholds from [LevelProgression].
      */
     fun startLevel(level: Int) {
         ghostModeIndex = 0
-        currentGhostMode = modeSequence[0].first
-        ghostModeTimer = modeSequence[0].second
         frightenedTimer = 0f
         pelletsEatenForGhostScore = 0
         clearEatenPathCache()
-        ghostReleaseTimers = floatArrayOf(0f, 3f, 6f, 9f)
-            .map { max(0f, it - (level - 1) * 0.25f) }
-            .toFloatArray()
+
+        val spec = LevelProgression.forLevel(level)
+        frightenedFlashes = spec.frightFlashes
+        val pattern = LevelProgression.SCATTER_CHASE_PATTERNS[spec.scatterChasePattern]
+        modeSequence = buildModeSequence(pattern)
+        currentGhostMode = modeSequence[0].first
+        ghostModeTimer = modeSequence[0].second
+
+        val limits = dotLimitsForLevel(level)
+        dotReleaseThresholds = intArrayOf(0, limits[0], limits[1], limits[2])
+
+        val forceOutBase = if (level <= 4) 4f else 3f
+        ghostReleaseTimers = floatArrayOf(0f, forceOutBase, forceOutBase * 2f, forceOutBase * 3f)
     }
 
     /**
@@ -95,14 +107,19 @@ class GhostAISystem(
 
     /**
      * Activates FRIGHTENED mode for all released ghosts.
-     * Ghosts immediately reverse direction and move at a reduced speed.
+     * Ghosts immediately reverse direction and move at the per-level reduced speed.
+     * If [LevelSpec.frightTime] is 0 for this level, ghosts reverse but do not turn blue.
      */
     fun activateFrightened(level: Int) {
-        frightenedTimer = frightenedDurationForLevel(level)
+        val spec = LevelProgression.forLevel(level)
+        frightenedTimer = spec.frightTime
+        frightenedFlashes = spec.frightFlashes
         pelletsEatenForGhostScore = 0
         for (ghost in ghosts) {
             if (ghost.mode != GhostMode.EATEN && ghost.released) {
-                ghost.mode = GhostMode.FRIGHTENED
+                if (spec.frightTime > 0f) {
+                    ghost.mode = GhostMode.FRIGHTENED
+                }
                 ghost.direction = ghost.direction.opposite()
                 ghost.progress = 1f - ghost.progress
             }
@@ -145,12 +162,13 @@ class GhostAISystem(
     }
 
     private fun updateGhosts(dt: Float, level: Int) {
+        val spec = LevelProgression.forLevel(level)
         val dotsEaten = (Maze.totalDots() - dotsRemaining).coerceAtLeast(0)
         for (i in ghosts.indices) {
             val ghost = ghosts[i]
             if (!ghost.released) {
                 ghost.releaseTimer -= dt
-                val dotThreshold = max(0, dotReleaseThresholds[i] - (level - 1) * 2)
+                val dotThreshold = dotReleaseThresholds[i]
                 if (ghost.releaseTimer <= 0f || dotsEaten >= dotThreshold) {
                     ghost.released = true
                     ghost.gridX = 14
@@ -162,14 +180,18 @@ class GhostAISystem(
                 continue
             }
 
+            val baseSpeed = spec.ghostSpeed * maxSpeed
             val speed = when (ghost.mode) {
-                GhostMode.FRIGHTENED -> frightenedGhostSpeedForLevel(level)
-                GhostMode.EATEN -> eatenGhostSpeed
-                else -> ghostSpeedForLevel(level, ghost.type)
+                GhostMode.FRIGHTENED -> spec.ghostFrightSpeed * maxSpeed
+                GhostMode.EATEN     -> eatenGhostSpeed
+                else                -> elroySpeed(ghost.type, baseSpeed, spec)
             }
-            val tunnelSlowdown = if (ghost.mode != GhostMode.EATEN && ghost.gridY == 13 && (ghost.gridX <= 5 || ghost.gridX >= 22)) 0.6f else 1f
 
-            ghost.progress += speed * tunnelSlowdown * dt
+            val inTunnel = ghost.mode != GhostMode.EATEN &&
+                ghost.gridY == 13 && (ghost.gridX <= 5 || ghost.gridX >= 22)
+            val tunnelFactor = if (inTunnel) (spec.ghostTunnelSpeed / spec.ghostSpeed) else 1f
+
+            ghost.progress += speed * tunnelFactor * dt
             if (ghost.progress < 1f) continue
 
             val newCol = Maze.wrapCol(ghost.gridX + ghost.direction.dx)
@@ -185,6 +207,19 @@ class GhostAISystem(
             }
 
             chooseGhostDirection(i, ghost)
+        }
+    }
+
+    /**
+     * Returns Blinky's speed accounting for Elroy 1 and Elroy 2 thresholds from [spec].
+     * Non-Blinky ghosts always return [baseSpeed].
+     */
+    private fun elroySpeed(type: GhostType, baseSpeed: Float, spec: LevelSpec): Float {
+        if (type != GhostType.BLINKY) return baseSpeed
+        return when {
+            dotsRemaining <= spec.elroy2Dots -> spec.elroy2Speed * maxSpeed
+            dotsRemaining <= spec.elroy1Dots -> spec.elroy1Speed * maxSpeed
+            else                             -> baseSpeed
         }
     }
 
@@ -301,16 +336,26 @@ class GhostAISystem(
     fun ghostPixelX(g: GhostState): Float = Maze.centerX(g.gridX) + g.direction.dx * g.progress * Maze.TILE
     fun ghostPixelY(g: GhostState): Float = Maze.centerY(g.gridY) + g.direction.dy * g.progress * Maze.TILE
 
-    private fun baseGhostSpeedForLevel(level: Int): Float = (6f + (level - 1) * 0.3f).coerceAtMost(9f) * gameSpeedScale
-    private fun ghostSpeedForLevel(level: Int, ghostType: GhostType): Float {
-        val baseSpeed = baseGhostSpeedForLevel(level)
-        if (ghostType != GhostType.BLINKY) return baseSpeed
-        return when {
-            dotsRemaining <= 10 -> baseSpeed * 1.15f
-            dotsRemaining <= 20 -> baseSpeed * 1.05f
-            else -> baseSpeed
+    /**
+     * Builds a [GhostMode]/duration sequence from a flat [pattern] array
+     * (alternating scatter/chase durations from [LevelProgression.SCATTER_CHASE_PATTERNS]).
+     */
+    private fun buildModeSequence(pattern: FloatArray): List<Pair<GhostMode, Float>> {
+        val seq = mutableListOf<Pair<GhostMode, Float>>()
+        for (i in pattern.indices) {
+            val mode = if (i % 2 == 0) GhostMode.SCATTER else GhostMode.CHASE
+            seq.add(mode to pattern[i])
         }
+        return seq
     }
-    private fun frightenedDurationForLevel(level: Int): Float = max(3f, 8f - (level - 1) * 0.5f)
-    private fun frightenedGhostSpeedForLevel(level: Int): Float = baseGhostSpeedForLevel(level) * 0.58f
+
+    /**
+     * Returns the per-level ghost dot-release limits as [pinky, inky, clyde].
+     * Sourced from the Pac-Man Dossier: level 1 = [0, 30, 60], level 2 = [0, 0, 50], level 3+ = [0, 0, 0].
+     */
+    private fun dotLimitsForLevel(level: Int): IntArray = when (level) {
+        1    -> intArrayOf(0, 30, 60)
+        2    -> intArrayOf(0, 0, 50)
+        else -> intArrayOf(0, 0, 0)
+    }
 }

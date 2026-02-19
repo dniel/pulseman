@@ -3,6 +3,9 @@ package pulseman
 /**
  * Manages the spawning, timing, and consumption of bonus fruits.
  * Fruits spawn twice per level based on the number of dots eaten (70 and 170).
+ *
+ * Fruit type and score are sourced from [LevelProgression] for ROM-accurate progression.
+ * Levels 1–13 each have a distinct fruit; levels 13+ all use [FruitType.KEY].
  */
 class FruitManager(
     private val scoreManager: ScoreManager,
@@ -15,17 +18,6 @@ class FruitManager(
 
     private var fruitSpawn70Done = false
     private var fruitSpawn170Done = false
-
-    private val fruitTypeCycle = listOf(
-        FruitType.CHERRY,
-        FruitType.STRAWBERRY,
-        FruitType.ORANGE,
-        FruitType.APPLE,
-        FruitType.MELON,
-        FruitType.GALAXIAN,
-        FruitType.BELL,
-        FruitType.KEY,
-    )
 
     /**
      * Resets the spawn flags and removes any active fruit.
@@ -52,13 +44,14 @@ class FruitManager(
     }
 
     /**
-     * Spawns a fruit below the ghost house. The type of fruit depends on the current [level].
+     * Spawns a fruit below the ghost house.
+     * The type and score are taken from [LevelProgression.forLevel] for ROM accuracy.
      */
     private fun spawnFruit(level: Int) {
         if (activeFruit != null) return
-        val fruitType = fruitTypeCycle[(level - 1).mod(fruitTypeCycle.size)]
+        val spec = LevelProgression.forLevel(level)
         activeFruit = FruitState(
-            type = fruitType,
+            type = spec.fruit,
             col = 14,
             row = 16,
             timer = 10f,
