@@ -1,5 +1,24 @@
 # Changelog
 
+## v2.0
+
+### Multi-Maze Mode
+- Ms. Pulse-Man mode with four unique maze layouts (Pink, Blue, Orange, Dark Blue)
+- MazeMode enum (CLASSIC / MS_PULSEMAN) toggleable from service menu
+- Ms. Pulse-Man maze rotation: maze 1 (L1-2), 2 (L3-5), 3 (L6-9), 4 (L10-13), then 3↔4
+- Each layout has distinct wall colors and tunnel configuration
+- All layouts share identical ghost house region for AI compatibility
+
+### Architecture
+- MazeLayout.kt — layout data model with ASCII grid, tunnel rows, wall color
+- Maze.loadLayout() replaces hardcoded grid with dynamic layout loading
+- LightingManager.refreshMazeGeometry() rebuilds occluders and pellet lights on layout change
+- Extracted createPowerPelletLights() for independent pellet light lifecycle
+
+### Fixes
+- Lighting occluders now rebuild when maze layout changes (shadows match visible walls)
+- Player start position corrected in MS_1_PINK and MS_4_DARK_BLUE layouts
+
 ## v1.7
 
 ### Level Progression
