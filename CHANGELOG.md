@@ -1,9 +1,14 @@
 # Changelog
 
-## v2.4-SNAPSHOT
+## v2.4
+
+### Lighting
+- Added a fast white aura pulse for eaten ghosts while returning to the ghost house.
+- Increased power-pellet aura radius/intensity for stronger pickup readability.
+- Aligned ghost aura/rim reach with Pac-Man reach in GI lighting.
 
 ### Build
-- Bumped project version to `2.4-SNAPSHOT`.
+- Set project version to `2.4` for release.
 
 ## v2.3
 

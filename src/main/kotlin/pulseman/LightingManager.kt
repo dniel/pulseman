@@ -429,9 +429,9 @@ class LightingManager(private val engine: PulseEngine) {
                     spill = 1f
                     width = GI_GHOST_SOURCE_SIZE_MAIN
                     height = GI_GHOST_SOURCE_SIZE_MAIN
-                    radius = 210f * (0.82f + eatenBreathe * 0.36f)
-                    size = 30f
-                    intensity = if (auraLightsEnabled) 0.34f + eatenPulse * 0.34f else 0f
+                    radius = 320f * (0.85f + eatenBreathe * 0.3f)
+                    size = 44f
+                    intensity = if (auraLightsEnabled) 0.78f + eatenPulse * 0.22f else 0f
                 }
                 rimLight?.intensity = 0f
                 continue
@@ -447,10 +447,19 @@ class LightingManager(private val engine: PulseEngine) {
                 spill = 1f
                 width = GI_GHOST_SOURCE_SIZE_MAIN
                 height = GI_GHOST_SOURCE_SIZE_MAIN
-                radius = 250f * (0.86f + auraBreathe * 0.28f)
-                size = 34f
+                radius = if (enhancedPacAuraEnabled) {
+                    320f * (0.85f + auraBreathe * 0.3f)
+                } else {
+                    220f * (0.85f + auraBreathe * 0.3f)
+                }
+                size = if (enhancedPacAuraEnabled) 44f else 34f
                 val intensityBoost = if (ghost.mode == GhostMode.FRIGHTENED) 1.18f else 1f
-                intensity = if (auraLightsEnabled) (0.24f + pulse * 0.16f) * intensityBoost else 0f
+                val baseIntensity = if (enhancedPacAuraEnabled) {
+                    0.78f + pulse * 0.22f
+                } else {
+                    0.58f + pulse * 0.32f
+                }
+                intensity = if (auraLightsEnabled) baseIntensity * intensityBoost else 0f
             }
 
             rimLight?.apply {
@@ -460,10 +469,11 @@ class LightingManager(private val engine: PulseEngine) {
                 spill = 1f
                 width = GI_GHOST_SOURCE_SIZE_RIM
                 height = GI_GHOST_SOURCE_SIZE_RIM
-                radius = 320f * (0.88f + auraBreathe * 0.22f)
-                size = 44f
+                val baseRadius = if (enhancedPacAuraEnabled) 380f else 270f
+                radius = baseRadius * (0.88f + auraBreathe * 0.24f)
+                size = if (enhancedPacAuraEnabled) 52f else 40f
                 val mainIntensity = auraLight?.intensity ?: 0f
-                intensity = if (auraLightsEnabled) mainIntensity * 0.32f else 0f
+                intensity = if (auraLightsEnabled) mainIntensity * 0.3f else 0f
             }
         }
 
@@ -561,9 +571,9 @@ class LightingManager(private val engine: PulseEngine) {
         private const val GI_PAC_INTENSITY_BOOST = 1.8f
         private const val GI_PAC_SOURCE_SIZE_MAIN = 24f
         private const val GI_PAC_SOURCE_SIZE_RIM = 24f
-        private const val GI_GHOST_INTENSITY_BOOST = 1.35f
-        private const val GI_GHOST_SOURCE_SIZE_MAIN = 20f
-        private const val GI_GHOST_SOURCE_SIZE_RIM = 20f
+        private const val GI_GHOST_INTENSITY_BOOST = 1.8f
+        private const val GI_GHOST_SOURCE_SIZE_MAIN = 24f
+        private const val GI_GHOST_SOURCE_SIZE_RIM = 24f
         private const val GI_PELLET_BREATHE_RANGE = 6f
         private const val GI_COLOR_GRADING_EFFECT = "gi_color_grading"
     }
