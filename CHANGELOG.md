@@ -1,5 +1,10 @@
 # Changelog
 
+## v2.4-SNAPSHOT
+
+### Build
+- Bumped project version to `2.4-SNAPSHOT`.
+
 ## v2.3
 
 ### Lighting
