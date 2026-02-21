@@ -1,5 +1,24 @@
 # Changelog
 
+## v2.1
+
+### Architecture
+- Removed DirectLightingSystem support and switched to GlobalIlluminationSystem-only runtime.
+- Simplified LightingManager to GI-only setup/sync/teardown and GI occluder flow.
+- Removed direct-light mode switching and direct-only service menu controls.
+
+### Lighting
+- Removed all ghost-emitted lighting (aura, rim, and cone lights); ghosts no longer act as light sources.
+- Kept Pac-Man, fruit, board, and power-pellet lighting in GI mode.
+- Updated attract demo to keep lighting enabled during demo gameplay.
+
+### UI
+- Improved slider readability by displaying values with two decimals.
+- Increased aura bloom threshold slider adjustment step so changes are visibly reflected.
+
+### Build
+- Set project version to `2.1` for release.
+
 ## v2.0
 
 ### Multi-Maze Mode
