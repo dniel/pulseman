@@ -1,5 +1,10 @@
 # Changelog
 
+## v2.2-SNAPSHOT
+
+### Build
+- Bumped project version to `2.2-SNAPSHOT`.
+
 ## v2.1
 
 ### Architecture
