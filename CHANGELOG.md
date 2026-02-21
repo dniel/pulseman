@@ -1,5 +1,10 @@
 # Changelog
 
+## v2.5-SNAPSHOT
+
+### Build
+- Development version for v2.5 cycle.
+
 ## v2.4
 
 ### Lighting
