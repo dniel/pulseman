@@ -226,7 +226,7 @@ class LightingManager(private val engine: PulseEngine) {
                 val key = col to row
                 powerPelletAuraLights[key] = createAuraLamp(
                     color = Color(1f, 0.97f, 0.78f, 1f),
-                    radius = 190f,
+                    radius = 220f,
                     size = 18f,
                     intensity = 0.5f,
                 )
@@ -357,6 +357,8 @@ class LightingManager(private val engine: PulseEngine) {
         val pulse = 0.5f + 0.5f * sin(snapshot.uiPulseTime * 3.8f)
         val auraBreathe = 0.5f + 0.5f * sin(snapshot.uiPulseTime * 1.8f)
         val coneBreathe = 0.5f + 0.5f * sin(snapshot.uiPulseTime * 2.1f)
+        val eatenPulse = 0.5f + 0.5f * sin(snapshot.uiPulseTime * 12f)
+        val eatenBreathe = 0.5f + 0.5f * sin(snapshot.uiPulseTime * 9f)
         val playfieldLightsEnabled = snapshot.phase in setOf(
             GamePhase.PLAYING,
             GamePhase.ATTRACT_DEMO,
@@ -413,8 +415,24 @@ class LightingManager(private val engine: PulseEngine) {
             val auraLight = ghostAuraLights[type]
             val rimLight = ghostRimLights[type]
 
-            if (ghost == null || !ghost.released || ghost.mode == GhostMode.EATEN) {
+            if (ghost == null || !ghost.released) {
                 auraLight?.intensity = 0f
+                rimLight?.intensity = 0f
+                continue
+            }
+
+            if (ghost.mode == GhostMode.EATEN) {
+                auraLight?.apply {
+                    x = ghost.x
+                    y = ghost.y
+                    lightColor = Color(1f, 1f, 1f, 1f)
+                    spill = 1f
+                    width = GI_GHOST_SOURCE_SIZE_MAIN
+                    height = GI_GHOST_SOURCE_SIZE_MAIN
+                    radius = 210f * (0.82f + eatenBreathe * 0.36f)
+                    size = 30f
+                    intensity = if (auraLightsEnabled) 0.34f + eatenPulse * 0.34f else 0f
+                }
                 rimLight?.intensity = 0f
                 continue
             }
@@ -487,7 +505,7 @@ class LightingManager(private val engine: PulseEngine) {
                 val y = Maze.centerY(row)
                 light.x = x
                 light.y = y
-                light.intensity = if (auraLightsEnabled) 0.12f + pulse * 0.12f else 0f
+                light.intensity = if (auraLightsEnabled) 0.16f + pulse * 0.14f else 0f
                 val breathSize = GI_SOURCE_SIZE_SMALL + coneBreathe * GI_PELLET_BREATHE_RANGE
                 light.width = breathSize
                 light.height = breathSize

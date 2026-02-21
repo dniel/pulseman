@@ -1,9 +1,13 @@
 # Changelog
 
-## v2.3-SNAPSHOT
+## v2.3
+
+### Lighting
+- Increased power-pellet GI aura strength and radius to improve pickup readability.
+- Added a fast white aura pulse for eaten ghosts while they return to the ghost house.
 
 ### Build
-- Bumped project version to `2.3-SNAPSHOT`.
+- Set project version to `2.3` for release.
 
 ## v2.2
 
