@@ -152,7 +152,7 @@ class ServiceMenuManager(
 
                 MenuItemType.Slider -> {
                     val value = item.getter?.invoke() as? Float ?: 0f
-                    val valueText = "%.1f".format(value)
+                    val valueText = "%.2f".format(value)
                     val prefix = if (isSelected) "> " else "  "
 
                     s.setDrawColor(0.9f, 0.9f, 0.9f, 1f)

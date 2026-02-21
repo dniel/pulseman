@@ -95,6 +95,32 @@ class ParticleSystem {
         emitBurst(x, y, count = 18, speedMin = 30f, speedMax = 92f, lifeMin = 0.32f, lifeMax = 0.62f, sizeMin = 1.8f, sizeMax = 4.2f, red = 1f, green = 0.98f, blue = 0.7f)
     }
 
+    /** Emits slow-moving particles in a rotating ring around a power pellet. */
+    fun emitPowerPelletHalo(x: Float, y: Float, time: Float) {
+        val count = if (Random.nextFloat() > 0.5f) 2 else 1
+        repeat(count) { i ->
+            val ringRadius = 14f + Random.nextFloat() * 4f
+            val ringAngle = (time * 2.5f + (i.toFloat() / count) * PI * 2f).toFloat()
+            val px = x + cos(ringAngle) * ringRadius
+            val py = y + sin(ringAngle) * ringRadius
+            val outwardSpeed = 4f + Random.nextFloat() * 8f
+            val life = 0.6f + Random.nextFloat() * 0.4f
+            val size = 1.2f + Random.nextFloat() * 1.2f
+            particles += Particle(
+                x = px,
+                y = py,
+                vx = cos(ringAngle) * outwardSpeed,
+                vy = sin(ringAngle) * outwardSpeed,
+                size = size,
+                life = life,
+                maxLife = life,
+                red = 1f,
+                green = 0.96f,
+                blue = 0.72f,
+            )
+        }
+    }
+
     /** Emits color-coded particles when a ghost is eaten. */
     fun emitGhostEatenParticles(x: Float, y: Float, ghostType: GhostType) {
         if (!enhancedGhostExplosionsEnabled) {

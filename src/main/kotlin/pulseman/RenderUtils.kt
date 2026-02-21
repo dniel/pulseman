@@ -10,17 +10,17 @@ import kotlin.math.sqrt
 fun setGhostColor(s: Surface, ghost: GhostState, frightenedTimer: Float, frightenedFlashes: Int) {
     if (ghost.mode == GhostMode.FRIGHTENED) {
         val flashDuration = frightenedFlashes * 0.233f
-        val flash = frightenedTimer < flashDuration && ((frightenedTimer * 7f).toInt() % 2 == 0)
-        if (flash) s.setDrawColor(1f, 1f, 1f, 1f)
-        else s.setDrawColor(0.08f, 0.2f, 0.82f, 1f)
+        val flashWhite = frightenedTimer < flashDuration && ((frightenedTimer * 7f).toInt() % 2 == 0)
+        if (flashWhite) s.setDrawColor(1f, 1f, 1f, 1f)
+        else s.setDrawColor(0.1f, 0.24f, 0.88f, 1f)
         return
     }
 
     when (ghost.type) {
-        GhostType.BLINKY -> s.setDrawColor(0.96f, 0.12f, 0.12f, 1f)
-        GhostType.PINKY -> s.setDrawColor(1f, 0.7f, 0.83f, 1f)
-        GhostType.INKY -> s.setDrawColor(0.1f, 0.92f, 0.95f, 1f)
-        GhostType.CLYDE -> s.setDrawColor(1f, 0.62f, 0.12f, 1f)
+        GhostType.BLINKY -> s.setDrawColor(0.94f, 0.18f, 0.2f, 1f)
+        GhostType.PINKY -> s.setDrawColor(1f, 0.66f, 0.82f, 1f)
+        GhostType.INKY -> s.setDrawColor(0.16f, 0.86f, 0.95f, 1f)
+        GhostType.CLYDE -> s.setDrawColor(0.98f, 0.6f, 0.16f, 1f)
     }
 }
 

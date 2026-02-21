@@ -133,13 +133,13 @@ class GameplayRenderer(
             val gone = 1f - life
             val shrink = (1f - gone).coerceAtLeast(0f)
             val dyingMouth = (0.35f + gone * 0.65f).coerceAtMost(1f)
-            s.setDrawColor(1f, 0.95f, 0f, 1f)
+            s.setDrawColor(1f, 0.9f, 0.05f, 1f)
             drawFilledCircle(s, px, py, radius * shrink, 20)
             drawPulseManMouthCutout(s, px, py, radius * shrink, if (pulseMan.dir == Direction.NONE) Direction.RIGHT else pulseMan.dir, dyingMouth)
             return
         }
 
-        s.setDrawColor(1f, 0.95f, 0f, 1f)
+        s.setDrawColor(1f, 0.9f, 0.05f, 1f)
         drawFilledCircle(s, px, py, radius, 20)
         if (pulseMan.dir != Direction.NONE) {
             drawPulseManMouthCutout(s, px, py, radius, pulseMan.dir, pulseMan.mouthAngle)
@@ -226,39 +226,6 @@ class GameplayRenderer(
                 s.setDrawColor(0.98f, 0.92f, 0.45f, 1f)
                 drawFilledCircle(s, cx, cy, 5f, 12)
             }
-        }
-    }
-
-    /**
-     * Renders subtle bloom halos around Pulse-Man, ghosts, and fruit.
-     */
-    fun renderEntityBloomHalos(s: Surface, uiPulseTime: Float) {
-        val pulse = 0.5f + 0.5f * sin(uiPulseTime * 4.3f)
-        val pulseX = pulseMan.pixelX()
-        val pulseY = pulseMan.pixelY()
-        s.setDrawColor(1f, 0.95f, 0.24f, 0.16f + pulse * 0.12f)
-        drawFilledCircle(s, pulseX, pulseY, 16f + pulse * 3f, 18)
-
-        fruitManager.activeFruit?.let {
-            val fx = Maze.centerX(it.col)
-            val fy = Maze.centerY(it.row)
-            s.setDrawColor(1f, 0.55f, 0.2f, 0.16f + pulse * 0.12f)
-            drawFilledCircle(s, fx, fy, 13f + pulse * 2.5f, 16)
-        }
-
-        for (ghost in ghostAI.ghosts) {
-            if (ghost.mode == GhostMode.EATEN) continue
-            val gx = if (!ghost.released) Maze.centerX(ghost.gridX) else ghostAI.ghostPixelX(ghost)
-            val gy = if (!ghost.released) Maze.centerY(ghost.gridY) else ghostAI.ghostPixelY(ghost)
-            val c = when {
-                ghost.mode == GhostMode.FRIGHTENED -> floatArrayOf(0.45f, 0.58f, 1f)
-                ghost.type == GhostType.BLINKY -> floatArrayOf(1f, 0.24f, 0.24f)
-                ghost.type == GhostType.PINKY -> floatArrayOf(1f, 0.7f, 0.86f)
-                ghost.type == GhostType.INKY -> floatArrayOf(0.24f, 1f, 1f)
-                else -> floatArrayOf(1f, 0.72f, 0.25f)
-            }
-            s.setDrawColor(c[0], c[1], c[2], 0.14f + pulse * 0.1f)
-            drawFilledCircle(s, gx, gy, 14f + pulse * 2f, 16)
         }
     }
 

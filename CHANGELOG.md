@@ -1,9 +1,28 @@
 # Changelog
 
-## v2.2-SNAPSHOT
+## v2.3-SNAPSHOT
 
 ### Build
-- Bumped project version to `2.2-SNAPSHOT`.
+- Bumped project version to `2.3-SNAPSHOT`.
+
+## v2.2
+
+### Architecture
+- Replaced DirectLightingSystem runtime with a GlobalIlluminationSystem-first lighting pipeline.
+- Reworked lighting orchestration around GI setup/sync/scaling and maze occluder integration.
+- Expanded `AGENTS.md` with a comprehensive PulseEngine architecture and API reference.
+
+### Lighting
+- Reimplemented ghost lighting with GI-backed aura and rim lights driven by per-frame ghost state snapshots.
+- Removed spinning cone lights and cone-pair runtime updates from gameplay lighting.
+- Added GI-aware color grading and source scaling tuned for game-entity auras.
+
+### Visual
+- Removed legacy renderer bloom-halo pass now superseded by GI lighting.
+- Tuned core entity color/lighting behavior for better contrast with the GI pipeline.
+
+### Build
+- Set project version to `2.2` for release.
 
 ## v2.1
 

@@ -229,6 +229,15 @@ class PulseManGame : PulseEngineGame() {
             },
         ),
         MenuItem(
+            label = "Aura Bloom Threshold",
+            type = MenuItemType.Slider,
+            getter = { postProcessing.auraBloomThreshold },
+            sliderSetter = { delta ->
+                postProcessing.auraBloomThreshold = (postProcessing.auraBloomThreshold + delta * 0.5f).coerceIn(0.5f, 1f)
+                postProcessing.updateBloomEffectSettings(ghostAI.frightenedTimer, dynamicFrightenedBloomEnabled, isGameplayVisualPhase())
+            },
+        ),
+        MenuItem(
             label = "LIGHTING",
             type = MenuItemType.Header,
         ),
@@ -315,22 +324,10 @@ class PulseManGame : PulseEngineGame() {
              type = MenuItemType.Header,
          ),
          MenuItem(
-             label = "Frightened Ambient Shift",
-             type = MenuItemType.Toggle,
-             getter = { lighting.frightenedAmbientShiftEnabled },
-             setter = { value -> lighting.frightenedAmbientShiftEnabled = value },
-         ),
-         MenuItem(
              label = "Enhanced Pac Aura",
              type = MenuItemType.Toggle,
              getter = { lighting.enhancedPacAuraEnabled },
              setter = { value -> lighting.enhancedPacAuraEnabled = value },
-         ),
-         MenuItem(
-             label = "Enhanced Ghost Lights",
-             type = MenuItemType.Toggle,
-             getter = { lighting.enhancedGhostLightsEnabled },
-             setter = { value -> lighting.enhancedGhostLightsEnabled = value },
          ),
          MenuItem(
              label = "Frightened Particle Trail",
@@ -367,14 +364,6 @@ class PulseManGame : PulseEngineGame() {
              type = MenuItemType.Toggle,
              getter = { dynamicFrightenedBloomEnabled },
              setter = { value -> dynamicFrightenedBloomEnabled = value },
-         ),
-         MenuItem(
-             label = "Native Fog",
-             type = MenuItemType.Slider,
-             getter = { lighting.nativeFogIntensity },
-             sliderSetter = { delta ->
-                 lighting.nativeFogIntensity = (lighting.nativeFogIntensity + delta * 0.1f).coerceIn(0f, 1f)
-             },
          ),
      )
 
@@ -414,6 +403,7 @@ class PulseManGame : PulseEngineGame() {
                  particleSystem.emitPulseManTrail(pulseMan.pixelX(), pulseMan.pixelY(), phase, ghostAI.frightenedTimer)
                  particleSystem.emitFrightenedTrail(pulseMan.pixelX(), pulseMan.pixelY(), phase, ghostAI.frightenedTimer)
                  particleSystem.emitAmbientDust(dt, phase)
+                 emitPowerPelletHalos()
                  ghostAI.dotsRemaining = (Maze.totalDots() - dotsEatenThisLevel).coerceAtLeast(0)
                  ghostAI.update(dt, level)
                  fruitManager.updateFruit(dt)
@@ -447,6 +437,7 @@ class PulseManGame : PulseEngineGame() {
                  particleSystem.emitPulseManTrail(pulseMan.pixelX(), pulseMan.pixelY(), phase, ghostAI.frightenedTimer)
                  particleSystem.emitFrightenedTrail(pulseMan.pixelX(), pulseMan.pixelY(), phase, ghostAI.frightenedTimer)
                  particleSystem.emitAmbientDust(dt, phase)
+                 emitPowerPelletHalos()
                  ghostAI.dotsRemaining = (Maze.totalDots() - dotsEatenThisLevel).coerceAtLeast(0)
                  ghostAI.update(dt, level)
                  fruitManager.updateFruit(dt)
@@ -497,7 +488,9 @@ class PulseManGame : PulseEngineGame() {
         if (attractDemoGameOverTimer > 0f) {
             attractDemoGameOverTimer = (attractDemoGameOverTimer - dt).coerceAtLeast(0f)
         }
-         if (isNonGameplayLightsOffPhase()) {
+         if (phase == GamePhase.ATTRACT_DEMO) {
+             lighting.setLightingEnabledState(true)
+         } else if (isNonGameplayLightsOffPhase()) {
              lighting.setLightingEnabledState(false)
          }
          scoreManager.update(dt)
@@ -506,9 +499,16 @@ class PulseManGame : PulseEngineGame() {
             phase = phase,
             pulseX = pulseMan.pixelX(),
             pulseY = pulseMan.pixelY(),
-            ghosts = ghostAI.ghosts,
+            ghosts = ghostAI.ghosts.map { ghost ->
+                GhostLightingState(
+                    type = ghost.type,
+                    mode = ghost.mode,
+                    released = ghost.released,
+                    x = if (!ghost.released && ghost.mode != GhostMode.EATEN) Maze.centerX(ghost.gridX) else ghostAI.ghostPixelX(ghost),
+                    y = if (!ghost.released && ghost.mode != GhostMode.EATEN) Maze.centerY(ghost.gridY) else ghostAI.ghostPixelY(ghost),
+                )
+            },
             fruit = fruitManager.activeFruit,
-            frightenedTimer = ghostAI.frightenedTimer,
             deathAnimTimer = deathAnimTimer,
             uiPulseTime = uiPulseTime,
         ))
@@ -543,7 +543,6 @@ class PulseManGame : PulseEngineGame() {
         if (gameplayPhase) {
             uiSurface.setBackgroundColor(0f, 0f, 0f, 0f)
             gameplayRenderer.renderMaze(s, uiPulseTime)
-            if (lighting.entityHaloEnabled) gameplayRenderer.renderEntityBloomHalos(s, uiPulseTime)
             gameplayRenderer.renderFruit(s)
             if (phase != GamePhase.DYING) gameplayRenderer.renderGhosts(s)
             gameplayRenderer.renderPulseMan(s, phase, deathAnimTimer)
@@ -683,6 +682,15 @@ class PulseManGame : PulseEngineGame() {
 
     private fun updateAttractPulseManControl() {
         pulseMan.updateAttractPulseManControl(ghostAI.ghosts)
+    }
+
+    private fun emitPowerPelletHalos() {
+        for (row in 0 until Maze.ROWS) {
+            for (col in 0 until Maze.COLS) {
+                if (Maze.grid[row][col] != Maze.POWER) continue
+                particleSystem.emitPowerPelletHalo(Maze.centerX(col), Maze.centerY(row), uiPulseTime)
+            }
+        }
     }
 
     private fun eatDotAt(col: Int, row: Int) {

@@ -25,7 +25,9 @@ class PostProcessingManager(private val engine: PulseEngine) {
     var scanlineStrength = 1f
 
     /** The intensity of the bloom effect. */
-    var bloomStrength = 0.5f
+    var bloomStrength = 0.75f
+
+    var auraBloomThreshold = 0.62f
 
     /**
      * Configures and initializes all enabled post-processing effects on the main surface.
@@ -110,7 +112,7 @@ class PostProcessingManager(private val engine: PulseEngine) {
         mainBloom?.apply {
             val frightenedBoost = if (dynamicFrightenedBloomEnabled && frightenedTimer > 0f) 0.4f else 0f
             intensity = (if (isGameplayPhase) 1.35f * bloomStrength else 0.95f * bloomStrength) + frightenedBoost
-            threshold = if (isGameplayPhase) 0.78f else 0.9f
+            threshold = if (isGameplayPhase) auraBloomThreshold else 0.9f
             thresholdSoftness = if (isGameplayPhase) 0.86f else 0.78f
             radius = if (isGameplayPhase) {
                 0.0062f + (bloomStrength - 1f) * 0.0018f

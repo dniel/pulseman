@@ -1,24 +1,20 @@
 package pulseman
 
 import no.njoh.pulseengine.core.PulseEngine
+import no.njoh.pulseengine.core.asset.types.Texture
+import no.njoh.pulseengine.core.graphics.postprocessing.effects.ColorGradingEffect
+import no.njoh.pulseengine.core.graphics.postprocessing.effects.ColorGradingEffect.ToneMapper.ACES
+import no.njoh.pulseengine.core.scene.SceneEntity.Companion.DEAD
 import no.njoh.pulseengine.core.graphics.surface.Surface
 import no.njoh.pulseengine.core.shared.primitives.Color
-import no.njoh.pulseengine.modules.lighting.direct.DirectLightOccluder
-import no.njoh.pulseengine.modules.lighting.direct.DirectLightType
-import no.njoh.pulseengine.modules.lighting.direct.DirectShadowType
-import no.njoh.pulseengine.modules.lighting.direct.DirectLightingSystem
-import no.njoh.pulseengine.modules.scene.systems.EntityRendererImpl
+import no.njoh.pulseengine.modules.lighting.global.GiOccluder
+import no.njoh.pulseengine.modules.lighting.global.GiSceneRenderer
+import no.njoh.pulseengine.modules.lighting.global.GlobalIlluminationSystem
+import no.njoh.pulseengine.modules.scene.entities.CommonSceneEntity
 import no.njoh.pulseengine.modules.scene.entities.Lamp
-import no.njoh.pulseengine.core.scene.SceneEntity.Companion.DEAD
-import no.njoh.pulseengine.modules.physics.entities.Box
+import no.njoh.pulseengine.modules.scene.systems.EntityRendererImpl
 import kotlin.math.max
 import kotlin.math.sin
-
-/** A pair of opposing cone [Lamp]s used to create spinning directional light effects around entities. */
-data class LightPair(
-    val first: Lamp,
-    val second: Lamp,
-)
 
 /**
  * Immutable snapshot of game state passed to [LightingManager.syncSceneLights] each frame.
@@ -29,34 +25,39 @@ data class LightingSnapshot(
     val phase: GamePhase,
     val pulseX: Float,
     val pulseY: Float,
-    val ghosts: List<GhostState>,
+    val ghosts: List<GhostLightingState>,
     val fruit: FruitState?,
-    val frightenedTimer: Float,
     val deathAnimTimer: Float,
     val uiPulseTime: Float,
 )
 
+data class GhostLightingState(
+    val type: GhostType,
+    val mode: GhostMode,
+    val released: Boolean,
+    val x: Float,
+    val y: Float,
+)
+
 /**
- * Manages the dynamic lighting system using PulseEngine's [DirectLightingSystem].
+ * Manages PulseEngine lighting systems for Pulse-Man.
  *
- * Creates and orchestrates multiple light layers to give the maze atmosphere:
+ * Creates and orchestrates multiple light layers to give the maze atmosphere in
+ * [GlobalIlluminationSystem].
  *
  * - **Board backlight** — a large radial light behind the entire maze providing base illumination.
- * - **Entity aura lights** — radial lights that follow Pulse-Man, each ghost, active fruit, and
- *   power pellets, casting soft shadows through maze wall [occluders][LightingMazeOccluder].
- * - **Cone light pairs** — spinning directional [LightPair]s on eaten ghosts, fruit, and power
- *   pellets for dramatic visual emphasis.
- *
+ * - **Entity aura lights** — radial lights that follow Pulse-Man, active fruit, and
+ *   ghosts and power pellets, casting soft shadows through maze wall [occluders][GiMazeOccluder].
  * ### Ambient color priority
  * The scene ambient color is determined by a priority chain:
  * 1. **Fog of war** — near-black ambient for maximum contrast against entity auras
- * 2. **Frightened mode** — cool blue ambient shift when ghosts are vulnerable
- * 3. **Scene brightness** — user-selectable LOW / MEDIUM / HIGH base ambient
+ * 2. **Scene brightness** — user-selectable LOW / MEDIUM / HIGH base ambient
  *
  * ### Lifecycle
  * Call [setupSceneLighting] once during game init to create the PulseEngine scene, lights, and
- * occluders. Then call [syncSceneLights] every frame with a [LightingSnapshot] to update all
- * light positions, intensities, and colors based on current game state.
+ * GI occluders/system. Then call [syncSceneLights] every frame with a
+ * [LightingSnapshot] to update all light positions, intensities, and colors based on current game
+ * state.
  *
  * All lighting features are individually toggleable via the service menu boolean flags.
  */
@@ -68,60 +69,75 @@ class LightingManager(private val engine: PulseEngine) {
     var auraLightsEnabled = true
     var lightingTargetMainEnabled = true
     var sceneBrightness = SceneBrightness.HIGH
-    var frightenedAmbientShiftEnabled = true
     var enhancedPacAuraEnabled = true
-    var enhancedGhostLightsEnabled = true
-    var nativeFogEnabled = false
-    var nativeFogIntensity = 0.5f
     var fogOfWarEnabled = false
 
-    private var lightingSystem: DirectLightingSystem? = null
+    private var giSystem: GlobalIlluminationSystem? = null
     private var boardBacklight: Lamp? = null
     private var pulseAuraLight: Lamp? = null
-    private var fruitAuraLight: Lamp? = null
-    private var fruitConeLights: LightPair? = null
+    private var pulseAuraRimLight: Lamp? = null
     private val ghostAuraLights = mutableMapOf<GhostType, Lamp>()
+    private val ghostRimLights = mutableMapOf<GhostType, Lamp>()
+    private var fruitAuraLight: Lamp? = null
     private val powerPelletAuraLights = mutableMapOf<Pair<Int, Int>, Lamp>()
-    private val eatenGhostConeLights = mutableMapOf<GhostType, LightPair>()
-    private val powerPelletConeLights = mutableMapOf<Pair<Int, Int>, LightPair>()
-    private val mazeOccluders = mutableListOf<LightingMazeOccluder>()
+    private val giMazeOccluders = mutableListOf<GiMazeOccluder>()
+    private var sceneLightingInitialized = false
 
     /**
-     * Initializes the PulseEngine lighting scene: creates the [DirectLightingSystem],
+     * Initializes the PulseEngine lighting scene: creates the GI system,
      * board backlight, all entity aura lights, and maze wall occluders.
      * Must be called once during game initialization after the maze grid is ready.
      */
     fun setupSceneLighting() {
-        engine.scene.createEmptyAndSetActive("pulseman-lighting.scn")
-        engine.scene.addSystem(EntityRendererImpl())
-
-        lightingSystem = DirectLightingSystem().apply {
-            ambientColor = sceneBrightnessAmbient()
-            dithering = 0f
-            textureScale = 1f
-            enableFXAA = false
-            useNormalMap = false
-            enableLightSpill = true
-            targetSurfaces = if (lightingTargetMainEnabled) "main" else ""
-            drawDebug = false
-            enabled = lightingEnabled
-        }
-        engine.scene.addSystem(lightingSystem!!)
-
-        addBoardBacklight()
-        createAuraLights()
-        createMazeOccluders()
+        ensureSceneLightingInitialized()
+        teardownGiLighting()
+        setupGiLighting()
         syncSceneLights(LightingSnapshot(
             phase = GamePhase.BOOT,
             pulseX = Maze.centerX(Maze.PULSE_START_X),
             pulseY = Maze.centerY(Maze.PULSE_START_Y),
             ghosts = emptyList(),
             fruit = null,
-            frightenedTimer = 0f,
             deathAnimTimer = 0f,
             uiPulseTime = 0f,
         ))
         engine.scene.start()
+    }
+
+    private fun ensureSceneLightingInitialized() {
+        if (sceneLightingInitialized) return
+        engine.scene.createEmptyAndSetActive("pulseman-lighting.scn")
+        engine.scene.addSystem(EntityRendererImpl())
+        addBoardBacklight()
+        createAuraLights()
+        sceneLightingInitialized = true
+    }
+
+    private fun setupGiLighting() {
+        giSystem = GlobalIlluminationSystem().apply {
+            ambientLight = giSceneBrightnessAmbient()
+            ambientInteriorLight = Color(0.01f, 0.01f, 0.03f, 1f)
+            skyLight = false
+            lightTexScale = 0.5f
+            localSceneTexScale = 0.5f
+            globalSceneTexScale = 0.5f
+            globalWorldScale = 2f
+            upscaleSmaleSources = false
+            dithering = 1.0f
+            normalMapScale = 0f
+            aoRadius = 18f
+            aoStrength = 1.0f
+            intervalLength = 1.8f
+            bounceAccumulation = 0.55f
+            sourceIntensity = 1.35f
+            targetSurface = if (lightingTargetMainEnabled) "main" else ""
+            maxCascades = 12
+            maxSteps = 80
+            enabled = lightingEnabled
+        }
+        engine.scene.addSystem(giSystem!!)
+        createGiMazeOccluders()
+        ensureGiColorGrading()
     }
 
     /** Creates a large radial light centered behind the maze to provide base illumination. */
@@ -137,28 +153,36 @@ class LightingManager(private val engine: PulseEngine) {
                 x = boardCenterX
                 y = boardCenterY - boardHeight * 0.03f
                 z = -8f
+                width = GI_SOURCE_SIZE_LARGE
+                height = GI_SOURCE_SIZE_LARGE
                 lightColor = Color(0.44f, 0.62f, 0.9f, 1f)
                 intensity = 0.55f
                 this.radius = radius
                 size = 220f
                 coneAngle = 360f
                 spill = 1f
-                shadowType = DirectShadowType.NONE
             }
         engine.scene.addEntity(boardBacklight!!)
     }
 
     /**
-     * Creates all entity-tracking aura lights (Pulse-Man, ghosts, fruit, power pellets)
-     * and their associated cone light pairs for spinning visual emphasis.
+     * Creates all entity-tracking aura lights (Pulse-Man, ghosts, fruit, power pellets).
      */
     private fun createAuraLights() {
         pulseAuraLight = createAuraLamp(
-            color = Color(1f, 0.92f, 0.3f, 1f),
+            color = Color(1f, 0.9f, 0.2f, 1f),
             radius = 220f,
             size = 34f,
             intensity = 0.9f,
         )
+        pulseAuraRimLight = createAuraLamp(
+            color = Color(1f, 0.9f, 0.2f, 0.6f),
+            radius = 320f,
+            size = 46f,
+            intensity = 0.35f,
+        )
+
+        createGhostLights()
 
         fruitAuraLight = createAuraLamp(
             color = Color(1f, 0.45f, 0.22f, 1f),
@@ -166,59 +190,45 @@ class LightingManager(private val engine: PulseEngine) {
             size = 28f,
             intensity = 0f,
         )
-        fruitConeLights = createConePair(
-            color = Color(1f, 0.55f, 0.24f, 1f),
-            radius = 170f,
-            size = 30f,
-            coneAngle = 34f,
-            intensity = 0f,
-        )
-
-        ghostAuraLights.clear()
-        eatenGhostConeLights.clear()
-        for (type in GhostType.entries) {
-            ghostAuraLights[type] = createAuraLamp(
-                color = ghostAuraColor(type),
-                radius = 170f,
-                size = 26f,
-                intensity = 0.65f,
-            )
-            eatenGhostConeLights[type] = createConePair(
-                color = Color(1f, 1f, 1f, 1f),
-                radius = 250f,
-                size = 44f,
-                coneAngle = 36f,
-                intensity = 0f,
-            )
-        }
 
         createPowerPelletLights()
     }
 
+    private fun createGhostLights() {
+        ghostAuraLights.clear()
+        ghostRimLights.clear()
+        for (type in GhostType.entries) {
+            ghostAuraLights[type] = createAuraLamp(
+                color = ghostAuraColor(type),
+                radius = 240f,
+                size = 30f,
+                intensity = 0f,
+            )
+            ghostRimLights[type] = createAuraLamp(
+                color = ghostRimColor(type),
+                radius = 320f,
+                size = 40f,
+                intensity = 0f,
+            )
+        }
+    }
+
     /**
-     * Creates aura and cone light pairs for every power pellet in the current [Maze] grid.
-     * Scans the grid for [Maze.POWER] tiles and places a radial aura light plus a spinning
-     * cone [LightPair] at each position. Must be called again whenever the maze layout changes.
+     * Creates aura lights for every power pellet in the current [Maze] grid.
+     * Scans the grid for [Maze.POWER] tiles and places a radial aura light at each position.
+     * Must be called again whenever the maze layout changes.
      */
     private fun createPowerPelletLights() {
         powerPelletAuraLights.clear()
-        powerPelletConeLights.clear()
         for (row in 0 until Maze.ROWS) {
             for (col in 0 until Maze.COLS) {
                 if (Maze.grid[row][col] != Maze.POWER) continue
                 val key = col to row
                 powerPelletAuraLights[key] = createAuraLamp(
                     color = Color(1f, 0.97f, 0.78f, 1f),
-                    radius = 125f,
+                    radius = 190f,
                     size = 18f,
                     intensity = 0.5f,
-                )
-                powerPelletConeLights[key] = createConePair(
-                    color = Color(0.9f, 0.98f, 1f, 1f),
-                    radius = 145f,
-                    size = 26f,
-                    coneAngle = 34f,
-                    intensity = 0.22f,
                 )
             }
         }
@@ -226,47 +236,22 @@ class LightingManager(private val engine: PulseEngine) {
 
     /** Factory for a radial aura [Lamp] with soft shadows, added to the scene immediately. */
     private fun createAuraLamp(color: Color, radius: Float, size: Float, intensity: Float): Lamp {
-        val lamp = Lamp().apply {
+        val lamp = RoundLamp().apply {
             trackParent = false
             x = Maze.centerX(Maze.PULSE_START_X)
             y = Maze.centerY(Maze.PULSE_START_Y)
             z = -2f
+            width = GI_SOURCE_SIZE_SMALL
+            height = GI_SOURCE_SIZE_SMALL
             lightColor = color
             this.intensity = intensity
             this.radius = radius
             this.size = size
             coneAngle = 360f
             spill = 0.95f
-            type = DirectLightType.RADIAL
-            shadowType = DirectShadowType.SOFT
         }
         engine.scene.addEntity(lamp)
         return lamp
-    }
-
-    /** Factory for a [LightPair] of opposing linear cone lights (no shadows), used for spinning accents. */
-    private fun createConePair(color: Color, radius: Float, size: Float, coneAngle: Float, intensity: Float): LightPair {
-        val first = createAuraLamp(color, radius, size, intensity).apply {
-            type = DirectLightType.LINEAR
-            this.coneAngle = coneAngle
-            shadowType = DirectShadowType.NONE
-            spill = 1f
-        }
-        val second = createAuraLamp(color, radius, size, intensity).apply {
-            type = DirectLightType.LINEAR
-            this.coneAngle = coneAngle
-            shadowType = DirectShadowType.NONE
-            spill = 1f
-        }
-        return LightPair(first, second)
-    }
-
-    /** Returns the signature aura color for a ghost type (red, pink, cyan, orange). */
-    fun ghostAuraColor(type: GhostType): Color = when (type) {
-        GhostType.BLINKY -> Color(1f, 0.22f, 0.22f, 1f)
-        GhostType.PINKY -> Color(1f, 0.7f, 0.86f, 1f)
-        GhostType.INKY -> Color(0.25f, 0.95f, 1f, 1f)
-        GhostType.CLYDE -> Color(1f, 0.72f, 0.22f, 1f)
     }
 
     /** Cycles through LOW → MEDIUM → HIGH scene brightness and updates the ambient color. */
@@ -276,21 +261,20 @@ class LightingManager(private val engine: PulseEngine) {
             SceneBrightness.MEDIUM -> SceneBrightness.HIGH
             SceneBrightness.HIGH -> SceneBrightness.LOW
         }
-        lightingSystem?.ambientColor = sceneBrightnessAmbient()
+        giSystem?.ambientLight = giSceneBrightnessAmbient()
     }
 
-    private fun sceneBrightnessAmbient(): Color = when (sceneBrightness) {
-        SceneBrightness.LOW -> Color(0.13f, 0.13f, 0.16f, 0.98f)
-        SceneBrightness.MEDIUM -> Color(0.18f, 0.18f, 0.22f, 0.98f)
-        SceneBrightness.HIGH -> Color(0.24f, 0.24f, 0.3f, 0.98f)
+    private fun giSceneBrightnessAmbient(): Color = when (sceneBrightness) {
+        SceneBrightness.LOW -> Color(0.12f, 0.12f, 0.16f, 1f)
+        SceneBrightness.MEDIUM -> Color(0.18f, 0.18f, 0.24f, 1f)
+        SceneBrightness.HIGH -> Color(0.25f, 0.25f, 0.32f, 1f)
     }
 
-    /** Creates a [LightingMazeOccluder] entity for every wall and ghost-house tile so lights cast shadows. */
-    private fun createMazeOccluders() {
+    private fun createGiMazeOccluders() {
         for (row in 0 until Maze.ROWS) {
             for (col in 0 until Maze.COLS) {
                 if (!Maze.isWallForOutline(col, row)) continue
-                val occluder = LightingMazeOccluder().apply {
+                val occluder = GiMazeOccluder().apply {
                     x = Maze.centerX(col)
                     y = Maze.centerY(row)
                     width = Maze.TILE.toFloat()
@@ -298,7 +282,7 @@ class LightingManager(private val engine: PulseEngine) {
                     castShadows = true
                 }
                 engine.scene.addEntity(occluder)
-                mazeOccluders.add(occluder)
+                giMazeOccluders.add(occluder)
             }
         }
     }
@@ -306,7 +290,7 @@ class LightingManager(private val engine: PulseEngine) {
     /**
      * Rebuilds maze wall occluders and power pellet lights to match the current [Maze] grid.
      *
-     * Marks all existing [LightingMazeOccluder] entities and power pellet [Lamp] entities
+     * Marks all existing [GiMazeOccluder] entities and power pellet [Lamp] entities
      * as [DEAD] so the engine removes them on the next update cycle, then creates fresh
      * entities at the positions defined by the currently loaded [MazeLayout].
      *
@@ -315,27 +299,50 @@ class LightingManager(private val engine: PulseEngine) {
      * visible maze walls.
      */
     fun refreshMazeGeometry() {
-        mazeOccluders.forEach { it.set(DEAD) }
-        mazeOccluders.clear()
+        giMazeOccluders.forEach { it.set(DEAD) }
+        giMazeOccluders.clear()
+        createGiMazeOccluders()
 
         powerPelletAuraLights.values.forEach { it.set(DEAD) }
-        powerPelletConeLights.values.forEach { pair ->
-            pair.first.set(DEAD)
-            pair.second.set(DEAD)
-        }
 
-        createMazeOccluders()
         createPowerPelletLights()
+    }
+
+    private fun teardownGiLighting() {
+        giSystem?.enabled = false
+        giSystem?.let { engine.scene.removeSystem(it) }
+        giSystem = null
+        giMazeOccluders.forEach { it.set(DEAD) }
+        giMazeOccluders.clear()
+        removeGiPostProcessing()
+    }
+
+    private fun ensureGiColorGrading() {
+        val surface = engine.gfx.getSurface("main") ?: return
+        if (surface.getPostProcessingEffect<ColorGradingEffect>() != null) return
+        surface.addPostProcessingEffect(ColorGradingEffect(
+            name = GI_COLOR_GRADING_EFFECT,
+            order = 100,
+            toneMapper = ACES,
+            exposure = 1.75f,
+            contrast = 1.05f,
+            saturation = 1.22f,
+        ))
+    }
+
+    private fun removeGiPostProcessing() {
+        val surface = engine.gfx.getSurface("main") ?: return
+        surface.deletePostProcessingEffect(GI_COLOR_GRADING_EFFECT)
     }
 
     fun setLightingEnabledState(enabled: Boolean) {
         lightingEnabled = enabled
-        lightingSystem?.enabled = enabled
+        giSystem?.enabled = enabled
     }
 
     fun setLightingTargetMain(value: Boolean) {
         lightingTargetMainEnabled = value
-        lightingSystem?.targetSurfaces = if (lightingTargetMainEnabled) "main" else ""
+        giSystem?.targetSurface = if (lightingTargetMainEnabled) "main" else ""
     }
 
     /**
@@ -343,12 +350,13 @@ class LightingManager(private val engine: PulseEngine) {
      * [snapshot] of game state. Called every frame from [PulseManGame.onFixedUpdate].
      *
      * During non-gameplay phases all lights are dimmed to zero. During gameplay the method
-     * applies the ambient color priority chain, positions entity auras, handles death-sequence
-     * flickering, and animates spinning cone lights.
+     * applies the ambient color priority chain, positions entity auras, and handles
+     * death-sequence flickering.
      */
     fun syncSceneLights(snapshot: LightingSnapshot) {
         val pulse = 0.5f + 0.5f * sin(snapshot.uiPulseTime * 3.8f)
-        val spin = (snapshot.uiPulseTime * 220f) % 360f
+        val auraBreathe = 0.5f + 0.5f * sin(snapshot.uiPulseTime * 1.8f)
+        val coneBreathe = 0.5f + 0.5f * sin(snapshot.uiPulseTime * 2.1f)
         val playfieldLightsEnabled = snapshot.phase in setOf(
             GamePhase.PLAYING,
             GamePhase.ATTRACT_DEMO,
@@ -358,198 +366,268 @@ class LightingManager(private val engine: PulseEngine) {
         if (!playfieldLightsEnabled) {
             boardBacklight?.intensity = 0f
             pulseAuraLight?.intensity = 0f
-            fruitAuraLight?.intensity = 0f
-            fruitConeLights?.first?.intensity = 0f
-            fruitConeLights?.second?.intensity = 0f
+            pulseAuraRimLight?.intensity = 0f
             ghostAuraLights.values.forEach { it.intensity = 0f }
-            eatenGhostConeLights.values.forEach {
-                it.first.intensity = 0f
-                it.second.intensity = 0f
-            }
+            ghostRimLights.values.forEach { it.intensity = 0f }
+            fruitAuraLight?.intensity = 0f
             powerPelletAuraLights.values.forEach { it.intensity = 0f }
-            powerPelletConeLights.values.forEach {
-                it.first.intensity = 0f
-                it.second.intensity = 0f
-            }
             return
         }
 
-        // Ambient color priority chain: fogOfWar > frightenedAmbient > sceneBrightness
-        val anyGhostFrightened = snapshot.ghosts.any { it.mode == GhostMode.FRIGHTENED }
-        if (fogOfWarEnabled && playfieldLightsEnabled) {
-            lightingSystem?.ambientColor = Color(0.005f, 0.005f, 0.015f, 0.95f)  // Near-black
-        } else if (frightenedAmbientShiftEnabled && anyGhostFrightened) {
-            lightingSystem?.ambientColor = Color(0.02f, 0.03f, 0.12f, 0.85f)  // Cool blue
-        } else {
-            lightingSystem?.ambientColor = sceneBrightnessAmbient()  // Normal
-        }
+        syncGiLights(playfieldLightsEnabled)
 
-         // Native fog control
-         lightingSystem?.apply {
-              if (nativeFogIntensity > 0f && playfieldLightsEnabled) {
-                 fogIntensity = nativeFogIntensity
-                 fogTurbulence = 1.5f
-                 fogScale = 0.3f
-             } else {
-                 fogIntensity = 0f
-             }
-         }
-
-         boardBacklight?.intensity = if (fogOfWarEnabled) 0.05f else if (boardBacklightEnabled) 0.5f + pulse * 0.1f else 0f
+         boardBacklight?.intensity = if (fogOfWarEnabled) 0.1f else if (boardBacklightEnabled) 0.95f + pulse * 0.18f else 0f
 
         pulseAuraLight?.apply {
             x = snapshot.pulseX
             y = snapshot.pulseY
+            spill = 1f
+            width = GI_PAC_SOURCE_SIZE_MAIN
+            height = GI_PAC_SOURCE_SIZE_MAIN
             if (enhancedPacAuraEnabled) {
-                radius = 320f
+                radius = 320f * (0.85f + auraBreathe * 0.3f)
                 size = 44f
                 intensity = if (auraLightsEnabled) 0.78f + pulse * 0.22f else 0f
             } else {
-                radius = 220f
+                radius = 220f * (0.85f + auraBreathe * 0.3f)
                 size = 34f
                 intensity = if (auraLightsEnabled) 0.58f + pulse * 0.32f else 0f
             }
          }
+        pulseAuraRimLight?.apply {
+            x = snapshot.pulseX
+            y = snapshot.pulseY
+            spill = 1f
+            width = GI_PAC_SOURCE_SIZE_RIM
+            height = GI_PAC_SOURCE_SIZE_RIM
+            val baseRadius = if (enhancedPacAuraEnabled) 380f else 270f
+            radius = baseRadius * (0.88f + auraBreathe * 0.24f)
+            size = if (enhancedPacAuraEnabled) 52f else 40f
+            val mainIntensity = pulseAuraLight?.intensity ?: 0f
+            intensity = if (auraLightsEnabled) mainIntensity * 0.3f else 0f
+        }
 
-         // Death sequence light flicker
-         if (snapshot.phase == GamePhase.DYING) {
+        val ghostByType = snapshot.ghosts.associateBy { it.type }
+        for (type in GhostType.entries) {
+            val ghost = ghostByType[type]
+            val auraLight = ghostAuraLights[type]
+            val rimLight = ghostRimLights[type]
+
+            if (ghost == null || !ghost.released || ghost.mode == GhostMode.EATEN) {
+                auraLight?.intensity = 0f
+                rimLight?.intensity = 0f
+                continue
+            }
+
+            val auraColor = ghostAuraColor(type, ghost.mode, snapshot.uiPulseTime)
+            val rimColor = ghostRimColor(type, ghost.mode, snapshot.uiPulseTime)
+
+            auraLight?.apply {
+                x = ghost.x
+                y = ghost.y
+                lightColor = auraColor
+                spill = 1f
+                width = GI_GHOST_SOURCE_SIZE_MAIN
+                height = GI_GHOST_SOURCE_SIZE_MAIN
+                radius = 250f * (0.86f + auraBreathe * 0.28f)
+                size = 34f
+                val intensityBoost = if (ghost.mode == GhostMode.FRIGHTENED) 1.18f else 1f
+                intensity = if (auraLightsEnabled) (0.24f + pulse * 0.16f) * intensityBoost else 0f
+            }
+
+            rimLight?.apply {
+                x = ghost.x
+                y = ghost.y
+                lightColor = rimColor
+                spill = 1f
+                width = GI_GHOST_SOURCE_SIZE_RIM
+                height = GI_GHOST_SOURCE_SIZE_RIM
+                radius = 320f * (0.88f + auraBreathe * 0.22f)
+                size = 44f
+                val mainIntensity = auraLight?.intensity ?: 0f
+                intensity = if (auraLightsEnabled) mainIntensity * 0.32f else 0f
+            }
+        }
+
+          // Death sequence light flicker
+          if (snapshot.phase == GamePhase.DYING) {
              val deathProgress = 1f - (snapshot.deathAnimTimer / 1.5f).coerceIn(0f, 1f)
              val flicker = if ((snapshot.deathAnimTimer * 12f).toInt() % 2 == 0) 0.3f else 1.0f
+             val jitter = 0.5f + 0.5f * sin(snapshot.deathAnimTimer * 18f)
              val fade = (1f - deathProgress).coerceAtLeast(0f)
 
-             pulseAuraLight?.intensity = (pulseAuraLight?.intensity ?: 0f) * flicker * fade
-             ghostAuraLights.values.forEach { it.intensity = it.intensity * flicker * fade * 0.5f }
-             boardBacklight?.intensity = (boardBacklight?.intensity ?: 0f) * fade
-         }
+            pulseAuraLight?.apply {
+                intensity = intensity * flicker * fade * (0.6f + jitter * 0.4f)
+                radius *= (0.8f + jitter * 0.4f) * fade
+            }
+            pulseAuraRimLight?.apply {
+                intensity = intensity * flicker * fade * (0.6f + jitter * 0.4f)
+                radius *= (0.85f + jitter * 0.3f) * fade
+            }
+            boardBacklight?.intensity = (boardBacklight?.intensity ?: 0f) * fade
+        }
 
          fruitAuraLight?.apply {
             val fruit = snapshot.fruit
             if (fruit == null) {
                 intensity = 0f
-                fruitConeLights?.let {
-                    it.first.intensity = 0f
-                    it.second.intensity = 0f
-                }
             } else {
                 val x = Maze.centerX(fruit.col)
                 val y = Maze.centerY(fruit.row)
                 this.x = x
                 this.y = y
                 intensity = if (auraLightsEnabled) 0.45f + pulse * 0.35f else 0f
-                fruitConeLights?.let {
-                    val base = (spin + 73f) % 360f
-                    it.first.x = x
-                    it.first.y = y
-                    it.first.rotation = base
-                    it.first.intensity = if (auraLightsEnabled) 0.5f + pulse * 0.3f else 0f
-                     it.second.x = x
-                     it.second.y = y
-                      it.second.rotation = (base + 180f) % 360f
-                      it.second.intensity = if (auraLightsEnabled) 0.5f + pulse * 0.3f else 0f
-                }
             }
-        }
-
-        for (ghost in snapshot.ghosts) {
-            val light = ghostAuraLights[ghost.type] ?: continue
-            val conePair = eatenGhostConeLights[ghost.type]
-            light.x = if (!ghost.released && ghost.mode != GhostMode.EATEN) Maze.centerX(ghost.gridX) else ghostPixelX(ghost)
-            light.y = if (!ghost.released && ghost.mode != GhostMode.EATEN) Maze.centerY(ghost.gridY) else ghostPixelY(ghost)
-
-            when (ghost.mode) {
-                GhostMode.FRIGHTENED -> {
-                    light.lightColor = Color(0.42f, 0.58f, 1f, 1f)
-                    light.intensity = if (auraLightsEnabled) 0.42f + pulse * 0.2f else 0f
-                    conePair?.let {
-                        it.first.intensity = 0f
-                        it.second.intensity = 0f
-                    }
-                }
-
-                GhostMode.EATEN -> {
-                    light.lightColor = Color(1f, 1f, 1f, 1f)
-                    light.intensity = if (auraLightsEnabled) 0.22f + pulse * 0.08f else 0f
-                    conePair?.let {
-                        it.first.x = light.x
-                        it.first.y = light.y
-                        it.first.rotation = spin
-                        it.first.intensity = if (auraLightsEnabled) 0.5f + pulse * 0.3f else 0f
-                         it.second.x = light.x
-                         it.second.y = light.y
-                          it.second.rotation = (spin + 180f) % 360f
-                          it.second.intensity = if (auraLightsEnabled) 0.5f + pulse * 0.3f else 0f
-                    }
-                }
-
-                else -> {
-                    light.lightColor = ghostAuraColor(ghost.type)
-                    if (enhancedGhostLightsEnabled) {
-                        light.radius = 220f
-                        light.size = 32f
-                        light.intensity = if (auraLightsEnabled) 0.85f + pulse * 0.15f else 0f
-                    } else {
-                        light.radius = 170f
-                        light.size = 26f
-                        light.intensity = if (auraLightsEnabled) 0.38f + pulse * 0.24f else 0f
-                    }
-                    conePair?.let {
-                        it.first.intensity = 0f
-                        it.second.intensity = 0f
-                    }
-                }
-            }
-        }
+         }
 
         for ((key, light) in powerPelletAuraLights) {
             val (col, row) = key
-            val conePair = powerPelletConeLights[key]
             if (Maze.grid[row][col] == Maze.POWER) {
                 val x = Maze.centerX(col)
                 val y = Maze.centerY(row)
                 light.x = x
                 light.y = y
-                light.intensity = if (auraLightsEnabled) 0.28f + pulse * 0.24f else 0f
-                conePair?.let {
-                    val base = (spin + (col * 11f + row * 7f)) % 360f
-                    it.first.x = x
-                    it.first.y = y
-                    it.first.rotation = base
-                    it.first.intensity = if (auraLightsEnabled) 0.5f + pulse * 0.3f else 0f
-                     it.second.x = x
-                     it.second.y = y
-                      it.second.rotation = (base + 180f) % 360f
-                      it.second.intensity = if (auraLightsEnabled) 0.5f + pulse * 0.3f else 0f
-                }
+                light.intensity = if (auraLightsEnabled) 0.12f + pulse * 0.12f else 0f
+                val breathSize = GI_SOURCE_SIZE_SMALL + coneBreathe * GI_PELLET_BREATHE_RANGE
+                light.width = breathSize
+                light.height = breathSize
             } else {
                 light.intensity = 0f
-                conePair?.let {
-                    it.first.intensity = 0f
-                    it.second.intensity = 0f
-                }
             }
+        }
+
+        applyGiIntensityScaling()
+    }
+
+    /**
+     * Scales all lamp intensities and radii for [GlobalIlluminationSystem] compatibility.
+     *
+     * The GI system renders light sources as textured quads on a scene texture and traces
+     * rays via radiance cascades. This requires much higher intensity values (100–500×)
+     * to propagate light through the cascade, and infinite radius
+     * (0) so that maze wall [GiMazeOccluder]s handle occlusion via SDF ray marching instead
+     * of a hard distance cutoff.
+     */
+    private fun applyGiIntensityScaling() {
+        fun scaleAura(lamp: Lamp?) {
+            lamp ?: return
+            lamp.intensity = lamp.intensity * GI_INTENSITY_BOOST
+            lamp.radius = 0f
+        }
+
+        scaleAura(boardBacklight)
+        pulseAuraLight?.let {
+            scaleAura(it)
+            it.intensity *= GI_PAC_INTENSITY_BOOST
+        }
+        pulseAuraRimLight?.let {
+            scaleAura(it)
+            it.intensity *= GI_PAC_INTENSITY_BOOST
+        }
+        ghostAuraLights.values.forEach {
+            scaleAura(it)
+            it.intensity *= GI_GHOST_INTENSITY_BOOST
+        }
+        ghostRimLights.values.forEach {
+            scaleAura(it)
+            it.intensity *= GI_GHOST_INTENSITY_BOOST
+        }
+        scaleAura(fruitAuraLight)
+        powerPelletAuraLights.values.forEach { scaleAura(it) }
+    }
+
+    companion object {
+        private const val GI_INTENSITY_BOOST = 3f
+        private const val GI_SOURCE_SIZE_SMALL = 12f
+        private const val GI_SOURCE_SIZE_LARGE = 30f
+        private const val GI_PAC_INTENSITY_BOOST = 1.8f
+        private const val GI_PAC_SOURCE_SIZE_MAIN = 24f
+        private const val GI_PAC_SOURCE_SIZE_RIM = 24f
+        private const val GI_GHOST_INTENSITY_BOOST = 1.35f
+        private const val GI_GHOST_SOURCE_SIZE_MAIN = 20f
+        private const val GI_GHOST_SOURCE_SIZE_RIM = 20f
+        private const val GI_PELLET_BREATHE_RANGE = 6f
+        private const val GI_COLOR_GRADING_EFFECT = "gi_color_grading"
+    }
+
+    private fun syncGiLights(playfieldLightsEnabled: Boolean) {
+        giSystem?.ambientLight = when {
+            fogOfWarEnabled && playfieldLightsEnabled -> Color(0.012f, 0.012f, 0.024f, 1f)
+            else -> giSceneBrightnessAmbient()
         }
     }
 
-    private fun ghostPixelX(g: GhostState): Float = Maze.centerX(g.gridX) + g.direction.dx * g.progress * Maze.TILE
-    private fun ghostPixelY(g: GhostState): Float = Maze.centerY(g.gridY) + g.direction.dy * g.progress * Maze.TILE
+    private fun ghostAuraColor(type: GhostType, mode: GhostMode = GhostMode.CHASE, uiPulseTime: Float = 0f): Color {
+        if (mode == GhostMode.FRIGHTENED) {
+            val flashWhite = ((uiPulseTime * 6f).toInt() % 2) == 0
+            return if (flashWhite) Color(0.96f, 0.98f, 1f, 1f) else Color(0.22f, 0.42f, 1f, 1f)
+        }
+        return when (type) {
+            GhostType.BLINKY -> Color(0.94f, 0.18f, 0.2f, 1f)
+            GhostType.PINKY -> Color(1f, 0.66f, 0.82f, 1f)
+            GhostType.INKY -> Color(0.16f, 0.86f, 0.95f, 1f)
+            GhostType.CLYDE -> Color(0.98f, 0.6f, 0.16f, 1f)
+        }
+    }
+
+    private fun ghostRimColor(type: GhostType, mode: GhostMode = GhostMode.CHASE, uiPulseTime: Float = 0f): Color {
+        if (mode == GhostMode.FRIGHTENED) {
+            val flashWhite = ((uiPulseTime * 6f).toInt() % 2) == 0
+            return if (flashWhite) Color(0.96f, 0.98f, 1f, 0.72f) else Color(0.22f, 0.42f, 1f, 0.62f)
+        }
+        return when (type) {
+            GhostType.BLINKY -> Color(0.96f, 0.34f, 0.36f, 0.7f)
+            GhostType.PINKY -> Color(1f, 0.78f, 0.9f, 0.7f)
+            GhostType.INKY -> Color(0.34f, 0.94f, 1f, 0.7f)
+            GhostType.CLYDE -> Color(1f, 0.72f, 0.26f, 0.7f)
+        }
+    }
+
 }
 
 /**
- * A tile-sized box entity that blocks light, creating shadows behind maze walls.
- * Implements [DirectLightOccluder] so the [DirectLightingSystem] recognizes it as a shadow caster.
- * Only renders on the occluder surface — invisible on the main game surface.
+ * A [Lamp] variant that renders as a circular light source in [GlobalIlluminationSystem].
+ *
+ * The default [Lamp.onRenderLightSource] draws a rectangular quad on the GI scene texture.
+ * This override passes `cornerRadius = width * 0.5f` to [GiSceneRenderer.drawLight], producing
+ * a circular source that eliminates square artifacts in GI light emitters.
  */
-private class LightingMazeOccluder : Box(), DirectLightOccluder {
-    override var castShadows = true
+private class RoundLamp : Lamp() {
+    override fun onRenderLightSource(engine: PulseEngine, surface: Surface) {
+        if (intensity == 0f) return
+        surface.setDrawColor(lightColor)
+        surface.getRenderer<GiSceneRenderer>()?.drawLight(
+            texture = Texture.BLANK,
+            x = xInterpolated(),
+            y = yInterpolated(),
+            w = width,
+            h = height,
+            angle = rotationInterpolated(),
+            intensity = intensity,
+            coneAngle = coneAngle,
+            radius = radius,
+            cornerRadius = width * 0.5f,
+        )
+    }
+}
 
-    override fun onRender(engine: PulseEngine, surface: Surface) {
-        if (surface.config.name != DirectLightingSystem.OCCLUDER_SURFACE_NAME) return
-        surface.setDrawColor(1f, 1f, 1f, 1f)
-        surface.drawQuad(
-            x = xInterpolated() - width * 0.5f,
-            y = yInterpolated() - height * 0.5f,
-            width = width,
-            height = height,
+private class GiMazeOccluder : CommonSceneEntity(), GiOccluder {
+    override var occluderTexture = ""
+    override var bounceColor = Color(0.15f, 0.15f, 0.25f)
+    override var castShadows = true
+    override var edgeLight = 0f
+
+    override fun onRenderOccluder(engine: PulseEngine, surface: Surface) {
+        if (!castShadows) return
+        surface.setDrawColor(bounceColor)
+        surface.getRenderer<GiSceneRenderer>()?.drawOccluder(
+            texture = Texture.BLANK,
+            x = x,
+            y = y,
+            w = width,
+            h = height,
+            angle = rotation,
+            edgeLight = edgeLight,
         )
     }
 }
