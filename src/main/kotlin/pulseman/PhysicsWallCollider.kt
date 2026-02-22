@@ -30,7 +30,6 @@ class PhysicsWallCollider(
         width = widthPx
         height = heightPx
         set(HIDDEN)
-        setNot(DISCOVERABLE)
     }
 
     override fun onCreate() {

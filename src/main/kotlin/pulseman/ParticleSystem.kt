@@ -226,7 +226,7 @@ class ParticleSystem(private val engine: PulseEngine) {
      * particle rendering style (crisp quads, continuous shrink, alpha fade, no emissive glow).
      */
     fun emitDeathParticles(x: Float, y: Float) {
-        // Layer 1 — yellow main burst
+        // Layer 1 — warm yellow main burst
         emitPhysicsTrail(
             x = x, y = y,
             count = 56,
@@ -239,7 +239,7 @@ class ParticleSystem(private val engine: PulseEngine) {
             sizeMin = 2.6f, sizeMax = 7.2f,
             red = 1f, green = 0.9f, blue = 0.24f,
         )
-        // Layer 2 — deep orange secondary
+        // Layer 2 — orange secondary
         emitPhysicsTrail(
             x = x, y = y,
             count = 40,
@@ -252,20 +252,20 @@ class ParticleSystem(private val engine: PulseEngine) {
             sizeMin = 2.4f, sizeMax = 6.4f,
             red = 1f, green = 0.55f, blue = 0.12f,
         )
-        // Layer 3 — white sparks
+        // Layer 3 — white-hot sparks
         emitPhysicsTrail(
             x = x, y = y,
             count = 28,
             maxActive = MAX_PHYSICS_DEATH_PARTICLES,
             layerMask = PHYSICS_LAYER_DEATH_PARTICLE,
             collisionMask = PHYSICS_LAYER_WALL,
-            restitution = 0.25f, friction = 0.04f, drag = 0.015f, density = 0.08f,
+            restitution = 0.25f, friction = 0.04f, drag = 0.015f, density = 0.1f,
             speedMin = 80f, speedMax = 250f,
             lifeMin = 0.4f, lifeMax = 1.0f,
             sizeMin = 1.4f, sizeMax = 3.8f,
             red = 1f, green = 1f, blue = 0.95f,
         )
-        // Layer 4 — white-yellow shards (directional ring)
+        // Layer 4 — pale yellow shards
         emitPhysicsTrail(
             x = x, y = y,
             count = 20,

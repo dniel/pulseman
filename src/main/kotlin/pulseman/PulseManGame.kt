@@ -9,6 +9,7 @@ import no.njoh.pulseengine.modules.editor.UiElementFactory
 import no.njoh.pulseengine.modules.metrics.MetricViewer
 import no.njoh.pulseengine.modules.metrics.GpuMonitor
 import no.njoh.pulseengine.modules.physics.PhysicsSystem
+import no.njoh.pulseengine.modules.scene.systems.EntityUpdater
 import kotlin.math.*
 
 fun main() = PulseEngine.run<PulseManGame>()
@@ -89,9 +90,7 @@ class PulseManGame : PulseEngineGame() {
         physicsSystem = PhysicsSystem().apply {
             gravity = 0f
             physicsIterations = 2
-            drawShapes = false
         }
-        engine.scene.addSystem(physicsSystem)
         particleSystem = ParticleSystem(engine)
         fruitManager = FruitManager(scoreManager, particleSystem, soundManager)
         gameplayRenderer = GameplayRenderer(pulseMan, ghostAI, fruitManager)
@@ -101,6 +100,8 @@ class PulseManGame : PulseEngineGame() {
         lighting = LightingManager(engine)
         resetGame()
         lighting.setupSceneLighting()
+        engine.scene.addSystem(physicsSystem)
+        engine.scene.addSystem(EntityUpdater())
     }
 
      override fun onDestroy() {
