@@ -50,7 +50,7 @@ class GameplayRenderer(
                 val y = Maze.tileY(row)
                 val tile = Maze.grid[row][col]
 
-                if (Maze.isWalkable(col, row) || tile == Maze.GHOST_HOUSE) {
+                if (Maze.isWalkable(col, row) || tile == Maze.GHOST_HOUSE || tile == Maze.GHOST_DOOR) {
                     s.setDrawColor(0f, 0f, 0f, 1f)
                     s.drawQuad(x, y, Maze.TILE.toFloat(), Maze.TILE.toFloat())
                 }

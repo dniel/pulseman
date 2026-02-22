@@ -172,7 +172,34 @@ class ParticleSystem(private val engine: PulseEngine) {
 
     /** Emits a burst of particles when a dot is eaten. */
     fun emitDotParticles(x: Float, y: Float) {
-        emitBurst(x, y, count = 14, speedMin = 26f, speedMax = 88f, lifeMin = 0.24f, lifeMax = 0.58f, sizeMin = 1.6f, sizeMax = 3.6f, red = 1f, green = 0.94f, blue = 0.68f)
+        emitPhysicsTrail(
+            x = x, y = y, count = 12, maxActive = MAX_PHYSICS_BURST_PARTICLES,
+            layerMask = PHYSICS_LAYER_BURST_PARTICLE, collisionMask = PHYSICS_LAYER_WALL,
+            restitution = 0.35f, friction = 0.08f, drag = 0.03f, density = 0.1f,
+            speedMin = 30f, speedMax = 120f, lifeMin = 0.3f, lifeMax = 0.7f,
+            sizeMin = 1.4f, sizeMax = 3.2f, red = 1f, green = 0.94f, blue = 0.68f,
+        )
+        emitPhysicsTrail(
+            x = x, y = y, count = 8, maxActive = MAX_PHYSICS_BURST_PARTICLES,
+            layerMask = PHYSICS_LAYER_BURST_PARTICLE, collisionMask = PHYSICS_LAYER_WALL,
+            restitution = 0.3f, friction = 0.06f, drag = 0.025f, density = 0.1f,
+            speedMin = 20f, speedMax = 80f, lifeMin = 0.3f, lifeMax = 0.7f,
+            sizeMin = 1.2f, sizeMax = 2.8f, red = 1f, green = 0.85f, blue = 0.5f,
+        )
+        emitPhysicsTrail(
+            x = x, y = y, count = 6, maxActive = MAX_PHYSICS_BURST_PARTICLES,
+            layerMask = PHYSICS_LAYER_BURST_PARTICLE, collisionMask = PHYSICS_LAYER_WALL,
+            restitution = 0.25f, friction = 0.04f, drag = 0.02f, density = 0.1f,
+            speedMin = 50f, speedMax = 150f, lifeMin = 0.2f, lifeMax = 0.5f,
+            sizeMin = 0.8f, sizeMax = 2.0f, red = 1f, green = 1f, blue = 0.95f,
+        )
+        emitPhysicsTrail(
+            x = x, y = y, count = 6, maxActive = MAX_PHYSICS_BURST_PARTICLES,
+            layerMask = PHYSICS_LAYER_BURST_PARTICLE, collisionMask = PHYSICS_LAYER_WALL,
+            restitution = 0.3f, friction = 0.06f, drag = 0.025f, density = 0.1f,
+            speedMin = 70f, speedMax = 170f, lifeMin = 0.2f, lifeMax = 0.5f,
+            sizeMin = 1.0f, sizeMax = 2.4f, red = 1f, green = 0.94f, blue = 0.68f,
+        )
     }
 
     /** Emits physics particles when a power pellet is eaten. */
@@ -334,7 +361,7 @@ class ParticleSystem(private val engine: PulseEngine) {
         for (row in 0 until Maze.ROWS) {
             for (col in 0 until Maze.COLS) {
                 val tile = Maze.grid[row][col]
-                if (tile != Maze.WALL && tile != Maze.GHOST_HOUSE) continue
+                if (tile != Maze.WALL) continue
                 val collider = PhysicsWallCollider(
                     xCenter = Maze.centerX(col),
                     yCenter = Maze.centerY(row),

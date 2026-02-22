@@ -84,6 +84,7 @@ class LightingManager(private val engine: PulseEngine) {
     private val ghostRimLights = mutableMapOf<GhostType, Lamp>()
     private var fruitAuraLight: Lamp? = null
     private val powerPelletAuraLights = mutableMapOf<Pair<Int, Int>, Lamp>()
+    private val dotLights = mutableMapOf<Pair<Int, Int>, Lamp>()
     private val giMazeOccluders = mutableListOf<GiMazeOccluder>()
     private var sceneLightingInitialized = false
 
@@ -152,7 +153,7 @@ class LightingManager(private val engine: PulseEngine) {
         val boardCenterY = Maze.tileY(0) + boardHeight * 0.5f
         val radius = max(boardWidth, boardHeight) * 0.92f
 
-        boardBacklight = Lamp().apply {
+        boardBacklight = RoundLamp().apply {
                 trackParent = false
                 x = boardCenterX
                 y = boardCenterY - boardHeight * 0.03f
@@ -196,6 +197,32 @@ class LightingManager(private val engine: PulseEngine) {
         )
 
         createPowerPelletLights()
+        createDotLights()
+    }
+
+    private fun createDotLights() {
+        dotLights.clear()
+        for (row in 0 until Maze.ROWS) {
+            for (col in 0 until Maze.COLS) {
+                if (Maze.grid[row][col] != Maze.DOT) continue
+                val lamp = RoundLamp().apply {
+                    trackParent = false
+                    x = Maze.centerX(col)
+                    y = Maze.centerY(row)
+                    z = -1f
+                    width = 4f
+                    height = 4f
+                    lightColor = Color(1f, 0.93f, 0.75f, 1f)
+                    intensity = 0.06f
+                    radius = 36f
+                    size = 4f
+                    coneAngle = 360f
+                    spill = 0.8f
+                }
+                engine.scene.addEntity(lamp)
+                dotLights[col to row] = lamp
+            }
+        }
     }
 
     private fun createGhostLights() {
@@ -277,7 +304,7 @@ class LightingManager(private val engine: PulseEngine) {
     private fun createGiMazeOccluders() {
         for (row in 0 until Maze.ROWS) {
             for (col in 0 until Maze.COLS) {
-                if (!Maze.isWallForOutline(col, row)) continue
+                if (Maze.grid[row][col] != Maze.WALL) continue
                 val occluder = GiMazeOccluder().apply {
                     x = Maze.centerX(col)
                     y = Maze.centerY(row)
@@ -308,8 +335,10 @@ class LightingManager(private val engine: PulseEngine) {
         createGiMazeOccluders()
 
         powerPelletAuraLights.values.forEach { it.set(DEAD) }
+        dotLights.values.forEach { it.set(DEAD) }
 
         createPowerPelletLights()
+        createDotLights()
     }
 
     private fun teardownGiLighting() {
@@ -376,6 +405,7 @@ class LightingManager(private val engine: PulseEngine) {
             ghostRimLights.values.forEach { it.intensity = 0f }
             fruitAuraLight?.intensity = 0f
             powerPelletAuraLights.values.forEach { it.intensity = 0f }
+            dotLights.values.forEach { it.intensity = 0f }
             return
         }
 
@@ -536,6 +566,11 @@ class LightingManager(private val engine: PulseEngine) {
             }
         }
 
+        for ((key, light) in dotLights) {
+            val (col, row) = key
+            light.intensity = if (Maze.grid[row][col] == Maze.DOT && auraLightsEnabled) 0.04f + pulse * 0.04f else 0f
+        }
+
         applyGiIntensityScaling()
     }
 
@@ -580,6 +615,7 @@ class LightingManager(private val engine: PulseEngine) {
             scaleAura(it)
             it.intensity *= GI_ENTITY_AURA_INTENSITY_BOOST
         }
+        dotLights.values.forEach { scaleAura(it) }
     }
 
     companion object {
