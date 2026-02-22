@@ -226,47 +226,57 @@ class ParticleSystem(private val engine: PulseEngine) {
      * particle rendering style (crisp quads, continuous shrink, alpha fade, no emissive glow).
      */
     fun emitDeathParticles(x: Float, y: Float) {
+        // Layer 1 — yellow main burst
         emitPhysicsTrail(
-            x = x,
-            y = y,
-            count = 54,
+            x = x, y = y,
+            count = 56,
             maxActive = MAX_PHYSICS_DEATH_PARTICLES,
             layerMask = PHYSICS_LAYER_DEATH_PARTICLE,
             collisionMask = PHYSICS_LAYER_WALL,
-            restitution = 0.35f,
-            friction = 0.08f,
-            drag = 0.025f,
-            density = 0.1f,
-            speedMin = 42f,
-            speedMax = 170f,
-            lifeMin = 0.8f,
-            lifeMax = 1.6f,
-            sizeMin = 2f,
-            sizeMax = 5f,
-            red = 1f,
-            green = 0.9f,
-            blue = 0.24f,
+            restitution = 0.35f, friction = 0.08f, drag = 0.025f, density = 0.1f,
+            speedMin = 48f, speedMax = 210f,
+            lifeMin = 0.8f, lifeMax = 1.6f,
+            sizeMin = 2.6f, sizeMax = 7.2f,
+            red = 1f, green = 0.9f, blue = 0.24f,
         )
+        // Layer 2 — deep orange secondary
         emitPhysicsTrail(
-            x = x,
-            y = y,
-            count = 26,
+            x = x, y = y,
+            count = 40,
             maxActive = MAX_PHYSICS_DEATH_PARTICLES,
             layerMask = PHYSICS_LAYER_DEATH_PARTICLE,
             collisionMask = PHYSICS_LAYER_WALL,
-            restitution = 0.3f,
-            friction = 0.06f,
-            drag = 0.02f,
-            density = 0.1f,
-            speedMin = 68f,
-            speedMax = 220f,
-            lifeMin = 0.6f,
-            lifeMax = 1.3f,
-            sizeMin = 1.2f,
-            sizeMax = 3.2f,
-            red = 1f,
-            green = 0.98f,
-            blue = 0.72f,
+            restitution = 0.3f, friction = 0.06f, drag = 0.02f, density = 0.1f,
+            speedMin = 30f, speedMax = 145f,
+            lifeMin = 0.8f, lifeMax = 1.6f,
+            sizeMin = 2.4f, sizeMax = 6.4f,
+            red = 1f, green = 0.55f, blue = 0.12f,
+        )
+        // Layer 3 — white sparks
+        emitPhysicsTrail(
+            x = x, y = y,
+            count = 28,
+            maxActive = MAX_PHYSICS_DEATH_PARTICLES,
+            layerMask = PHYSICS_LAYER_DEATH_PARTICLE,
+            collisionMask = PHYSICS_LAYER_WALL,
+            restitution = 0.25f, friction = 0.04f, drag = 0.015f, density = 0.08f,
+            speedMin = 80f, speedMax = 250f,
+            lifeMin = 0.4f, lifeMax = 1.0f,
+            sizeMin = 1.4f, sizeMax = 3.8f,
+            red = 1f, green = 1f, blue = 0.95f,
+        )
+        // Layer 4 — white-yellow shards (directional ring)
+        emitPhysicsTrail(
+            x = x, y = y,
+            count = 20,
+            maxActive = MAX_PHYSICS_DEATH_PARTICLES,
+            layerMask = PHYSICS_LAYER_DEATH_PARTICLE,
+            collisionMask = PHYSICS_LAYER_WALL,
+            restitution = 0.3f, friction = 0.06f, drag = 0.02f, density = 0.1f,
+            speedMin = 120f, speedMax = 290f,
+            lifeMin = 0.5f, lifeMax = 1.1f,
+            sizeMin = 2.2f, sizeMax = 4.8f,
+            red = 1f, green = 0.98f, blue = 0.7f,
         )
     }
 

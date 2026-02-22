@@ -83,7 +83,6 @@ class PhysicsTrailParticle : CommonSceneEntity(), PointBody {
             expireNow()
             return
         }
-        size *= SIZE_SHRINK_FACTOR
     }
 
     fun expireNow() {
@@ -104,6 +103,5 @@ class PhysicsTrailParticle : CommonSceneEntity(), PointBody {
     companion object {
         var activeCount = 0
             private set
-        private const val SIZE_SHRINK_FACTOR = 0.992f
     }
 }
