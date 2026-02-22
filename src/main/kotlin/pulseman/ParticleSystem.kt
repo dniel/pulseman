@@ -1,20 +1,49 @@
 package pulseman
 
+import no.njoh.pulseengine.core.PulseEngine
 import no.njoh.pulseengine.core.graphics.surface.Surface
+import no.njoh.pulseengine.core.scene.SceneEntity.Companion.DEAD
 import no.njoh.pulseengine.core.shared.primitives.Color
 import kotlin.math.*
 import kotlin.random.Random
 
 /**
- * Manages the creation, update, and rendering of visual particle effects.
+ * Centralized particle FX subsystem for gameplay feedback and atmosphere.
  *
- * Includes effects for dots/power pellets being eaten, ghost deaths,
- * Pulse-Man's death, fruit consumption, and ambient environment effects.
+ * [ParticleSystem] owns a single in-memory list of short-lived [Particle] instances and exposes
+ * focused emitter methods used by gameplay systems. Emitters are grouped by gameplay intent:
+ *
+ * - **Interaction feedback**: dot, power-pellet, fruit, and ghost-eaten bursts.
+ * - **State feedback**: Pulse-Man trail, frightened trail, and ghost trails with mode-aware color.
+ * - **Ambient dressing**: dust motes, power-pellet halo sparkles, and win confetti.
+ *
+ * ## Lifecycle and ownership
+ * - Emitters are called from [PulseManGame] during fixed updates.
+ * - [updateParticles] advances simulation and culls dead particles.
+ * - [renderParticles] draws all active particles each frame.
+ * - [reset] clears all runtime particle state between level/session transitions.
+ *
+ * ## Trail behavior model
+ * Trail emitters are movement-gated so particles only spawn when a sprite has changed position.
+ * Ghost trails additionally:
+ * - spawn from one tile behind movement direction,
+ * - inherit directional velocity bias for smoother corner transitions,
+ * - switch color by ghost mode (normal type color, frightened blue/white, eaten white).
+ *
+ * ## Performance model
+ * - Hard cap via [MAX_PARTICLES] prevents runaway growth.
+ * - Emitters use small burst counts with short lifetimes.
+ * - [updateParticles] applies lightweight friction/gravity and removes expired particles eagerly.
  */
-class ParticleSystem {
+class ParticleSystem(private val engine: PulseEngine) {
     private val particles = mutableListOf<Particle>()
+    private val physicsWallColliders = mutableListOf<PhysicsWallCollider>()
     private var dustEmitAccumulator = 0f
     private var confettiAccumulator = 0f
+    private var lastPulseTrailPosition: Pair<Float, Float>? = null
+    private val lastGhostTrailPositions = mutableMapOf<GhostType, Pair<Float, Float>>()
+    private val ghostTrailMotionDirections = mutableMapOf<GhostType, Pair<Float, Float>>()
+    private val ghostTrailTurnBlend = mutableMapOf<GhostType, Float>()
     
     var frightenedParticleTrailEnabled = true
     var ambientDustEnabled = true
@@ -28,6 +57,10 @@ class ParticleSystem {
         particles.clear()
         dustEmitAccumulator = 0f
         confettiAccumulator = 0f
+        lastPulseTrailPosition = null
+        lastGhostTrailPositions.clear()
+        ghostTrailMotionDirections.clear()
+        ghostTrailTurnBlend.clear()
     }
 
     /**
@@ -57,6 +90,8 @@ class ParticleSystem {
         count: Int,
         speedMin: Float,
         speedMax: Float,
+        biasVx: Float = 0f,
+        biasVy: Float = 0f,
         lifeMin: Float,
         lifeMax: Float,
         sizeMin: Float,
@@ -73,8 +108,8 @@ class ParticleSystem {
             particles += Particle(
                 x = x,
                 y = y,
-                vx = cos(angle) * speed,
-                vy = sin(angle) * speed,
+                vx = cos(angle) * speed + biasVx,
+                vy = sin(angle) * speed + biasVy,
                 size = size,
                 life = life,
                 maxLife = life,
@@ -82,6 +117,59 @@ class ParticleSystem {
                 green = green,
                 blue = blue,
             )
+        }
+    }
+
+    private fun emitPhysicsTrail(
+        x: Float,
+        y: Float,
+        count: Int,
+        maxActive: Int = MAX_PHYSICS_TRAIL_PARTICLES,
+        layerMask: Int = PHYSICS_LAYER_NONE,
+        collisionMask: Int = PHYSICS_LAYER_NONE,
+        restitution: Float = 0f,
+        friction: Float = 0f,
+        drag: Float = 0.02f,
+        density: Float = 0.1f,
+        speedMin: Float,
+        speedMax: Float,
+        biasVx: Float = 0f,
+        biasVy: Float = 0f,
+        lifeMin: Float,
+        lifeMax: Float,
+        sizeMin: Float,
+        sizeMax: Float,
+        red: Float,
+        green: Float,
+        blue: Float,
+    ) {
+        repeat(count) {
+            if (PhysicsTrailParticle.activeCount >= maxActive) return
+            val angle = Random.nextFloat() * (PI * 2f).toFloat()
+            val speed = speedMin + Random.nextFloat() * (speedMax - speedMin)
+            val life = lifeMin + Random.nextFloat() * (lifeMax - lifeMin)
+            val size = sizeMin + Random.nextFloat() * (sizeMax - sizeMin)
+            val vx = cos(angle) * speed + biasVx
+            val vy = sin(angle) * speed + biasVy
+            val particle = PhysicsTrailParticle()
+            particle.initialize(
+                x = x,
+                y = y,
+                vx = vx,
+                vy = vy,
+                life = life,
+                size = size,
+                red = red,
+                green = green,
+                blue = blue,
+                layerMask = layerMask,
+                collisionMask = collisionMask,
+                restitution = restitution,
+                friction = friction,
+                drag = drag,
+                density = density,
+            )
+            engine.scene.addEntity(particle)
         }
     }
 
@@ -131,30 +219,98 @@ class ParticleSystem {
         emitBurst(x, y, count = 28, speedMin = 48f, speedMax = 140f, lifeMin = 0.35f, lifeMax = 0.9f, sizeMin = 2f, sizeMax = 5.2f, red = color.red, green = color.green, blue = color.blue)
     }
 
-    /** Emits a large burst of particles when Pulse-Man dies. */
+    /**
+     * Emits a large burst of physics-driven particles when Pulse-Man dies.
+     *
+     * Uses the physics engine for wall-bounce collision while matching the classic
+     * particle rendering style (crisp quads, continuous shrink, alpha fade, no emissive glow).
+     */
     fun emitDeathParticles(x: Float, y: Float) {
-        emitBurst(x, y, count = 56, speedMin = 48f, speedMax = 210f, lifeMin = 0.45f, lifeMax = 1.15f, sizeMin = 2.6f, sizeMax = 7.2f, red = 1f, green = 0.9f, blue = 0.24f)
-        emitBurst(x, y, count = 40, speedMin = 30f, speedMax = 145f, lifeMin = 0.55f, lifeMax = 1.35f, sizeMin = 2.4f, sizeMax = 6.4f, red = 1f, green = 0.55f, blue = 0.12f)
-        emitBurst(x, y, count = 28, speedMin = 80f, speedMax = 250f, lifeMin = 0.22f, lifeMax = 0.62f, sizeMin = 1.4f, sizeMax = 3.8f, red = 1f, green = 1f, blue = 0.95f)
+        emitPhysicsTrail(
+            x = x,
+            y = y,
+            count = 54,
+            maxActive = MAX_PHYSICS_DEATH_PARTICLES,
+            layerMask = PHYSICS_LAYER_DEATH_PARTICLE,
+            collisionMask = PHYSICS_LAYER_WALL,
+            restitution = 0.35f,
+            friction = 0.08f,
+            drag = 0.025f,
+            density = 0.1f,
+            speedMin = 42f,
+            speedMax = 170f,
+            lifeMin = 0.5f,
+            lifeMax = 1.2f,
+            sizeMin = 2f,
+            sizeMax = 5f,
+            red = 1f,
+            green = 0.9f,
+            blue = 0.24f,
+        )
+        emitPhysicsTrail(
+            x = x,
+            y = y,
+            count = 26,
+            maxActive = MAX_PHYSICS_DEATH_PARTICLES,
+            layerMask = PHYSICS_LAYER_DEATH_PARTICLE,
+            collisionMask = PHYSICS_LAYER_WALL,
+            restitution = 0.3f,
+            friction = 0.06f,
+            drag = 0.02f,
+            density = 0.1f,
+            speedMin = 68f,
+            speedMax = 220f,
+            lifeMin = 0.35f,
+            lifeMax = 0.9f,
+            sizeMin = 1.2f,
+            sizeMax = 3.2f,
+            red = 1f,
+            green = 0.98f,
+            blue = 0.72f,
+        )
+    }
 
-        val shards = 20
-        repeat(shards) { i ->
-            val angle = ((i.toFloat() / shards) * (PI * 2f)).toFloat() + Random.nextFloat() * 0.08f
-            val speed = 120f + Random.nextFloat() * 170f
-            val life = 0.35f + Random.nextFloat() * 0.45f
-            val size = 2.2f + Random.nextFloat() * 2.6f
-            particles += Particle(
-                x = x,
-                y = y,
-                vx = cos(angle) * speed,
-                vy = sin(angle) * speed,
-                size = size,
-                life = life,
-                maxLife = life,
-                red = 1f,
-                green = 0.98f,
-                blue = 0.7f,
-            )
+    fun refreshPhysicsWallColliders() {
+        physicsWallColliders.forEach { it.set(DEAD) }
+        physicsWallColliders.clear()
+
+        for (row in 0 until Maze.ROWS) {
+            for (col in 0 until Maze.COLS) {
+                val tile = Maze.grid[row][col]
+                if (tile != Maze.WALL && tile != Maze.GHOST_HOUSE) continue
+                val collider = PhysicsWallCollider(
+                    xCenter = Maze.centerX(col),
+                    yCenter = Maze.centerY(row),
+                    widthPx = Maze.TILE.toFloat(),
+                    heightPx = Maze.TILE.toFloat(),
+                    wallLayerMask = PHYSICS_LAYER_WALL,
+                )
+                physicsWallColliders += collider
+                engine.scene.addEntity(collider)
+            }
+        }
+    }
+
+    fun clearDeathBurstPhysicsParticles() {
+        engine.scene.forEachEntityOfType<PhysicsTrailParticle> { particle ->
+            if (particle.layerMask == PHYSICS_LAYER_DEATH_PARTICLE) {
+                particle.expireNow()
+            }
+        }
+    }
+
+    /**
+     * Expires all non-death physics trail particles (ghost trails, Pac-Man trail, etc.)
+     * to prevent ghost trail color contamination of the death burst.
+     *
+     * Called immediately before [emitDeathParticles] so lingering ghost trail particles
+     * (e.g. cyan from Inky) do not visually overwhelm the yellow death burst.
+     */
+    fun clearTrailPhysicsParticles() {
+        engine.scene.forEachEntityOfType<PhysicsTrailParticle> { particle ->
+            if (particle.layerMask != PHYSICS_LAYER_DEATH_PARTICLE) {
+                particle.expireNow()
+            }
         }
     }
 
@@ -183,13 +339,18 @@ class ParticleSystem {
     }
 
     /** Emits a trail of particles behind Pulse-Man during normal play. */
-    fun emitPulseManTrail(x: Float, y: Float, phase: GamePhase, frightenedTimer: Float) {
+    fun emitPulseManTrail(x: Float, y: Float, direction: Direction, phase: GamePhase, frightenedTimer: Float) {
         if (phase != GamePhase.PLAYING && phase != GamePhase.ATTRACT_DEMO) return
         if (frightenedTimer > 0f) return // Frightened trail takes over
-        
-        emitBurst(
-            x = x,
-            y = y,
+        if (direction == Direction.NONE) return
+        if (!hasMovedSinceLastPulseTrail(x, y)) return
+
+        val originX = x - direction.dx * TRAIL_REAR_OFFSET
+        val originY = y - direction.dy * TRAIL_REAR_OFFSET
+
+        emitPhysicsTrail(
+            x = originX,
+            y = originY,
             count = 1,
             speedMin = 8f, speedMax = 20f,
             lifeMin = 0.2f, lifeMax = 0.5f,
@@ -199,21 +360,152 @@ class ParticleSystem {
     }
 
     /** Emits a blue trail behind Pulse-Man while ghosts are frightened. */
-    fun emitFrightenedTrail(x: Float, y: Float, phase: GamePhase, frightenedTimer: Float) {
+    fun emitFrightenedTrail(x: Float, y: Float, direction: Direction, phase: GamePhase, frightenedTimer: Float) {
         if (!frightenedParticleTrailEnabled) return
         if (frightenedTimer <= 0f) return
         if (phase != GamePhase.PLAYING && phase != GamePhase.ATTRACT_DEMO) return
-        
+        if (direction == Direction.NONE) return
+        if (!hasMovedSinceLastPulseTrail(x, y)) return
+
+        val originX = x - direction.dx * TRAIL_REAR_OFFSET
+        val originY = y - direction.dy * TRAIL_REAR_OFFSET
+
         val count = if (Random.nextFloat() > 0.4f) 3 else 2
-        emitBurst(
-            x = x,
-            y = y,
+        emitPhysicsTrail(
+            x = originX,
+            y = originY,
             count = count,
             speedMin = 15f, speedMax = 45f,
             lifeMin = 0.4f, lifeMax = 0.8f,
             sizeMin = 2.0f, sizeMax = 4.0f,
             red = 0.3f, green = 0.5f, blue = 1f,
         )
+    }
+
+    /**
+     * Emits a movement trail for a ghost using mode-aware color and behind-sprite origin.
+     *
+     * Emission is skipped unless the ghost is active and has moved since the previous trail sample.
+     * Spawn origin is offset one tile opposite the measured movement delta so trail placement stays
+     * behind real motion even through corners and tunnel wrapping. Initial velocity receives
+     * movement-delta bias to smooth corner transitions.
+     */
+    fun emitGhostTrail(ghost: GhostState, x: Float, y: Float, phase: GamePhase) {
+        if (phase != GamePhase.PLAYING && phase != GamePhase.ATTRACT_DEMO) return
+        if (!ghost.released) return
+        if (ghost.direction == Direction.NONE) return
+
+        val previous = lastGhostTrailPositions[ghost.type]
+        lastGhostTrailPositions[ghost.type] = x to y
+        if (previous == null) return
+
+        val mazeWidth = Maze.COLS * Maze.TILE.toFloat()
+        var deltaX = x - previous.first
+        if (abs(deltaX) > mazeWidth * 0.5f) {
+            deltaX -= sign(deltaX) * mazeWidth
+        }
+        val deltaY = y - previous.second
+        if (abs(deltaX) < 0.001f && abs(deltaY) < 0.001f) return
+
+        val color = when (ghost.mode) {
+            GhostMode.EATEN -> floatArrayOf(1f, 1f, 1f)
+            GhostMode.FRIGHTENED -> {
+                if (Random.nextFloat() > 0.5f) floatArrayOf(0.22f, 0.42f, 1f)
+                else floatArrayOf(0.96f, 0.98f, 1f)
+            }
+            else -> {
+                val ghostColor = ghostAuraColor(ghost.type)
+                floatArrayOf(ghostColor.red, ghostColor.green, ghostColor.blue)
+            }
+        }
+
+        val deltaLength = sqrt(deltaX * deltaX + deltaY * deltaY)
+        if (deltaLength < 0.001f) return
+        if (deltaLength > MAX_TRAIL_STEP_DELTA) {
+            ghostTrailMotionDirections.remove(ghost.type)
+            ghostTrailTurnBlend.remove(ghost.type)
+            return
+        }
+        val motionDirX = deltaX / deltaLength
+        val motionDirY = deltaY / deltaLength
+
+        val previousDir = ghostTrailMotionDirections[ghost.type]
+        var turnBlend = ghostTrailTurnBlend[ghost.type] ?: 0f
+        var turned = false
+        if (previousDir != null) {
+            val alignment = (previousDir.first * motionDirX + previousDir.second * motionDirY).coerceIn(-1f, 1f)
+            if (alignment < 0.98f) {
+                turnBlend = 1f
+                turned = true
+            }
+        }
+
+        val previousDirX = previousDir?.first ?: motionDirX
+        val previousDirY = previousDir?.second ?: motionDirY
+        val blendedDirX = previousDirX * turnBlend + motionDirX * (1f - turnBlend)
+        val blendedDirY = previousDirY * turnBlend + motionDirY * (1f - turnBlend)
+        val blendedLength = sqrt(blendedDirX * blendedDirX + blendedDirY * blendedDirY).coerceAtLeast(0.001f)
+        val smoothedDirX = blendedDirX / blendedLength
+        val smoothedDirY = blendedDirY / blendedLength
+
+        val originX = x - smoothedDirX * TRAIL_REAR_OFFSET
+        val originY = y - smoothedDirY * TRAIL_REAR_OFFSET
+        val biasSpeed = deltaLength * 6f
+        val currentBiasVx = motionDirX * biasSpeed
+        val currentBiasVy = motionDirY * biasSpeed
+        val previousBiasVx = previousDirX * biasSpeed
+        val previousBiasVy = previousDirY * biasSpeed
+        val biasVx = previousBiasVx * turnBlend + currentBiasVx * (1f - turnBlend)
+        val biasVy = previousBiasVy * turnBlend + currentBiasVy * (1f - turnBlend)
+        ghostTrailMotionDirections[ghost.type] = motionDirX to motionDirY
+        ghostTrailTurnBlend[ghost.type] = (turnBlend - GHOST_TURN_BLEND_DECAY).coerceAtLeast(0f)
+
+        val count = if (ghost.mode == GhostMode.EATEN) 2 else 1
+        emitPhysicsTrail(
+            x = originX,
+            y = originY,
+            count = count,
+            speedMin = 14f,
+            speedMax = 34f,
+            biasVx = biasVx,
+            biasVy = biasVy,
+            lifeMin = 0.2f,
+            lifeMax = 0.5f,
+            sizeMin = 1.4f,
+            sizeMax = 2.8f,
+            red = color[0],
+            green = color[1],
+            blue = color[2],
+        )
+
+        if (turned && previousDir != null) {
+            repeat(2) { index ->
+                val t = (index + 1f) / 3f
+                val arcDirX = previousDir.first * (1f - t) + motionDirX * t
+                val arcDirY = previousDir.second * (1f - t) + motionDirY * t
+                val arcLength = sqrt(arcDirX * arcDirX + arcDirY * arcDirY).coerceAtLeast(0.001f)
+                val arcNormX = arcDirX / arcLength
+                val arcNormY = arcDirY / arcLength
+                val arcOriginX = x - arcNormX * TRAIL_REAR_OFFSET
+                val arcOriginY = y - arcNormY * TRAIL_REAR_OFFSET
+                emitPhysicsTrail(
+                    x = arcOriginX,
+                    y = arcOriginY,
+                    count = 1,
+                    speedMin = 14f,
+                    speedMax = 34f,
+                    biasVx = arcNormX * biasSpeed,
+                    biasVy = arcNormY * biasSpeed,
+                    lifeMin = 0.2f,
+                    lifeMax = 0.45f,
+                    sizeMin = 1.2f,
+                    sizeMax = 2.6f,
+                    red = color[0],
+                    green = color[1],
+                    blue = color[2],
+                )
+            }
+        }
     }
 
     /** Periodically emits ambient dust particles within the maze boundaries. */
@@ -302,8 +594,31 @@ class ParticleSystem {
         GhostType.CLYDE -> Color(1f, 0.72f, 0.22f, 1f)
     }
 
+    private fun hasMovedSinceLastPulseTrail(x: Float, y: Float): Boolean {
+        val current = x to y
+        val previous = lastPulseTrailPosition
+        lastPulseTrailPosition = current
+        if (previous == null) return false
+        return previous != current
+    }
+
+    fun resetTrailTracking() {
+        lastPulseTrailPosition = null
+        lastGhostTrailPositions.clear()
+        ghostTrailMotionDirections.clear()
+        ghostTrailTurnBlend.clear()
+    }
+
     companion object {
         private const val MAX_PARTICLES = 400
+        private const val MAX_PHYSICS_TRAIL_PARTICLES = 260
+        private const val MAX_TRAIL_STEP_DELTA = 22f
+        private const val GHOST_TURN_BLEND_DECAY = 0.2f
+        private const val TRAIL_REAR_OFFSET = 10f
+        private const val MAX_PHYSICS_DEATH_PARTICLES = 420
+        private const val PHYSICS_LAYER_NONE = 0
+        private const val PHYSICS_LAYER_WALL = 1 shl 0
+        private const val PHYSICS_LAYER_DEATH_PARTICLE = 1 shl 1
         private val CONFETTI_COLORS = listOf(
             Triple(1f, 0.2f, 0.2f),
             Triple(0.2f, 1f, 0.3f),

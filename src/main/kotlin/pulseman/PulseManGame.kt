@@ -8,6 +8,7 @@ import no.njoh.pulseengine.modules.editor.SceneEditor
 import no.njoh.pulseengine.modules.editor.UiElementFactory
 import no.njoh.pulseengine.modules.metrics.MetricViewer
 import no.njoh.pulseengine.modules.metrics.GpuMonitor
+import no.njoh.pulseengine.modules.physics.PhysicsSystem
 import kotlin.math.*
 
 fun main() = PulseEngine.run<PulseManGame>()
@@ -43,10 +44,12 @@ class PulseManGame : PulseEngineGame() {
     private var deathAnimTimer = 0f
     private var uiPulseTime = 0f
     private var geometryTestOverlayEnabled = false
-    private val particleSystem = ParticleSystem()
+    private lateinit var particleSystem: ParticleSystem
     private var dynamicFrightenedBloomEnabled = true
     private var bootTestHold = false
     private lateinit var lighting: LightingManager
+    private lateinit var physicsSystem: PhysicsSystem
+    private val cameraShake = CameraShakeManager()
 
     private val menuItems: List<MenuItem> by lazy { buildMenuItems() }
     private lateinit var soundManager: SoundManager
@@ -83,6 +86,13 @@ class PulseManGame : PulseEngineGame() {
         soundManager.loadAll()
         scoreManager = ScoreManager()
         scoreManager.highScore = engine.data.loadObject<HighScoreData>("highscore.json")?.score ?: 0
+        physicsSystem = PhysicsSystem().apply {
+            gravity = 0f
+            physicsIterations = 2
+            drawShapes = false
+        }
+        engine.scene.addSystem(physicsSystem)
+        particleSystem = ParticleSystem(engine)
         fruitManager = FruitManager(scoreManager, particleSystem, soundManager)
         gameplayRenderer = GameplayRenderer(pulseMan, ghostAI, fruitManager)
         screenRenderer = ScreenRenderer(scoreManager)
@@ -270,6 +280,22 @@ class PulseManGame : PulseEngineGame() {
             setter = { value -> lighting.auraLightsEnabled = value },
         ),
         MenuItem(
+            label = "Base Light Intensity",
+            type = MenuItemType.Slider,
+            getter = { lighting.baseLightIntensity },
+            sliderSetter = { delta ->
+                lighting.baseLightIntensity = lighting.baseLightIntensity + delta
+            },
+        ),
+        MenuItem(
+            label = "Shake Strength",
+            type = MenuItemType.Slider,
+            getter = { cameraShake.strength },
+            sliderSetter = { delta ->
+                cameraShake.strength = cameraShake.strength + delta
+            },
+        ),
+        MenuItem(
             label = "Brightness",
             type = MenuItemType.Cycle,
             getter = { lighting.sceneBrightness },
@@ -399,13 +425,21 @@ class PulseManGame : PulseEngineGame() {
                  attractDemoTimer -= dt
                  updateAttractPulseManControl()
                  applyLevelSpeed()
-                 pulseMan.updatePulseMan(dt, ::eatDotAt) { col, row -> fruitManager.checkFruitCollision(col, row) }
-                 particleSystem.emitPulseManTrail(pulseMan.pixelX(), pulseMan.pixelY(), phase, ghostAI.frightenedTimer)
-                 particleSystem.emitFrightenedTrail(pulseMan.pixelX(), pulseMan.pixelY(), phase, ghostAI.frightenedTimer)
+                 pulseMan.updatePulseMan(dt, ::eatDotAt) { col, row ->
+                     if (fruitManager.checkFruitCollision(col, row)) {
+                         cameraShake.addImpulse(SHAKE_EVENT_IMPULSE)
+                     }
+                 }
+                 particleSystem.emitPulseManTrail(pulseMan.pixelX(), pulseMan.pixelY(), pulseMan.dir, phase, ghostAI.frightenedTimer)
+                 particleSystem.emitFrightenedTrail(pulseMan.pixelX(), pulseMan.pixelY(), pulseMan.dir, phase, ghostAI.frightenedTimer)
                  particleSystem.emitAmbientDust(dt, phase)
                  emitPowerPelletHalos()
                  ghostAI.dotsRemaining = (Maze.totalDots() - dotsEatenThisLevel).coerceAtLeast(0)
                  ghostAI.update(dt, level)
+                 for (ghost in ghostAI.ghosts) {
+                     if (!ghost.released) continue
+                     particleSystem.emitGhostTrail(ghost, ghostAI.ghostPixelX(ghost), ghostAI.ghostPixelY(ghost), phase)
+                 }
                  fruitManager.updateFruit(dt)
                  checkCollisions()
                  if (Maze.dotsRemaining() == 0) {
@@ -433,13 +467,21 @@ class PulseManGame : PulseEngineGame() {
 
              GamePhase.PLAYING -> {
                  applyLevelSpeed()
-                 pulseMan.updatePulseMan(dt, ::eatDotAt) { col, row -> fruitManager.checkFruitCollision(col, row) }
-                 particleSystem.emitPulseManTrail(pulseMan.pixelX(), pulseMan.pixelY(), phase, ghostAI.frightenedTimer)
-                 particleSystem.emitFrightenedTrail(pulseMan.pixelX(), pulseMan.pixelY(), phase, ghostAI.frightenedTimer)
+                 pulseMan.updatePulseMan(dt, ::eatDotAt) { col, row ->
+                     if (fruitManager.checkFruitCollision(col, row)) {
+                         cameraShake.addImpulse(SHAKE_EVENT_IMPULSE)
+                     }
+                 }
+                 particleSystem.emitPulseManTrail(pulseMan.pixelX(), pulseMan.pixelY(), pulseMan.dir, phase, ghostAI.frightenedTimer)
+                 particleSystem.emitFrightenedTrail(pulseMan.pixelX(), pulseMan.pixelY(), pulseMan.dir, phase, ghostAI.frightenedTimer)
                  particleSystem.emitAmbientDust(dt, phase)
                  emitPowerPelletHalos()
                  ghostAI.dotsRemaining = (Maze.totalDots() - dotsEatenThisLevel).coerceAtLeast(0)
                  ghostAI.update(dt, level)
+                 for (ghost in ghostAI.ghosts) {
+                     if (!ghost.released) continue
+                     particleSystem.emitGhostTrail(ghost, ghostAI.ghostPixelX(ghost), ghostAI.ghostPixelY(ghost), phase)
+                 }
                  fruitManager.updateFruit(dt)
                  checkCollisions()
                   if (Maze.dotsRemaining() == 0) {
@@ -495,6 +537,7 @@ class PulseManGame : PulseEngineGame() {
          }
          scoreManager.update(dt)
          particleSystem.updateParticles(dt)
+         cameraShake.update(dt)
         lighting.syncSceneLights(LightingSnapshot(
             phase = phase,
             pulseX = pulseMan.pixelX(),
@@ -520,6 +563,7 @@ class PulseManGame : PulseEngineGame() {
     override fun onRender() {
         val s = engine.gfx.mainSurface
         val uiSurface = engine.gfx.getSurfaceOrDefault(UI_SURFACE_NAME)
+        cameraShake.apply(engine.gfx.mainCamera)
         val gameplayPhase = isGameplayVisualPhase()
         if (postProcessing.crtEnabled && !postProcessing.hasMainCrtEffect()) {
             postProcessing.ensureCRTEffects()
@@ -637,17 +681,19 @@ class PulseManGame : PulseEngineGame() {
     }
 
       private fun beginReadyPhase() {
-          lighting.setLightingEnabledState(true)
-          phase = GamePhase.READY
-         readyTimer = 2f
-         soundManager.play("pulseman_beginning")
-    }
+          particleSystem.clearDeathBurstPhysicsParticles()
+            lighting.setLightingEnabledState(true)
+            phase = GamePhase.READY
+           readyTimer = 2f
+          soundManager.play("pulseman_beginning")
+     }
 
      private fun startLevelState(resetDots: Boolean) {
          if (resetDots) {
              Maze.loadLayout(MazeLayouts.forLevel(level, mazeMode))
-             lighting.refreshMazeGeometry()
-         }
+              particleSystem.refreshPhysicsWallColliders()
+              lighting.refreshMazeGeometry()
+          }
          ghostAI.startLevel(level)
          applyLevelSpeed()
          dotsEatenThisLevel = 0
@@ -678,6 +724,7 @@ class PulseManGame : PulseEngineGame() {
     private fun resetPositions() {
         pulseMan.reset()
         ghostAI.resetPositions()
+        particleSystem.resetTrailTracking()
     }
 
     private fun updateAttractPulseManControl() {
@@ -710,6 +757,7 @@ class PulseManGame : PulseEngineGame() {
                  Maze.grid[row][col] = Maze.EMPTY
                  dotsEatenThisLevel++
                  pulseMan.invalidateDotCache()
+                 cameraShake.addImpulse(SHAKE_EVENT_IMPULSE)
                   scoreManager.addScore(50)
                   fruitManager.maybeSpawnFruit(dotsEatenThisLevel, level)
                  particleSystem.emitPowerPelletParticles(Maze.centerX(col), Maze.centerY(row))
@@ -730,6 +778,7 @@ class PulseManGame : PulseEngineGame() {
                      GhostMode.FRIGHTENED -> {
                          ghost.mode = GhostMode.EATEN
                          ghostAI.pelletsEatenForGhostScore++
+                         cameraShake.addImpulse(SHAKE_EVENT_IMPULSE)
                           val ghostScore = 200 * (1 shl (ghostAI.pelletsEatenForGhostScore - 1).coerceAtMost(3))
                           scoreManager.addScore(ghostScore)
                           particleSystem.emitGhostEatenParticles(ghostAI.ghostPixelX(ghost), ghostAI.ghostPixelY(ghost), ghost.type)
@@ -739,6 +788,8 @@ class PulseManGame : PulseEngineGame() {
 
                      GhostMode.EATEN -> {}
                      else -> {
+                         cameraShake.addImpulse(SHAKE_EVENT_IMPULSE)
+                         particleSystem.clearTrailPhysicsParticles()
                          particleSystem.emitDeathParticles(pulseMan.pixelX(), pulseMan.pixelY())
                          soundManager.play("pulseman_death")
                         if (phase == GamePhase.ATTRACT_DEMO) {
@@ -757,6 +808,7 @@ class PulseManGame : PulseEngineGame() {
 
     companion object {
         private const val UI_SURFACE_NAME = "pulseman_ui"
+        private const val SHAKE_EVENT_IMPULSE = 0.45f
     }
 }
 

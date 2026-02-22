@@ -68,9 +68,13 @@ class LightingManager(private val engine: PulseEngine) {
     var boardBacklightEnabled = true
     var auraLightsEnabled = true
     var lightingTargetMainEnabled = true
-    var sceneBrightness = SceneBrightness.HIGH
+    var sceneBrightness = SceneBrightness.MEDIUM
     var enhancedPacAuraEnabled = true
     var fogOfWarEnabled = false
+    var baseLightIntensity = 0.5f
+        set(value) {
+            field = value.coerceIn(0f, 3f)
+        }
 
     private var giSystem: GlobalIlluminationSystem? = null
     private var boardBacklight: Lamp? = null
@@ -225,10 +229,10 @@ class LightingManager(private val engine: PulseEngine) {
                 if (Maze.grid[row][col] != Maze.POWER) continue
                 val key = col to row
                 powerPelletAuraLights[key] = createAuraLamp(
-                    color = Color(1f, 0.97f, 0.78f, 1f),
-                    radius = 220f,
-                    size = 18f,
-                    intensity = 0.5f,
+                    color = Color(1f, 1f, 1f, 1f),
+                    radius = 320f,
+                    size = 44f,
+                    intensity = 0.9f,
                 )
             }
         }
@@ -356,7 +360,6 @@ class LightingManager(private val engine: PulseEngine) {
     fun syncSceneLights(snapshot: LightingSnapshot) {
         val pulse = 0.5f + 0.5f * sin(snapshot.uiPulseTime * 3.8f)
         val auraBreathe = 0.5f + 0.5f * sin(snapshot.uiPulseTime * 1.8f)
-        val coneBreathe = 0.5f + 0.5f * sin(snapshot.uiPulseTime * 2.1f)
         val eatenPulse = 0.5f + 0.5f * sin(snapshot.uiPulseTime * 12f)
         val eatenBreathe = 0.5f + 0.5f * sin(snapshot.uiPulseTime * 9f)
         val playfieldLightsEnabled = snapshot.phase in setOf(
@@ -515,10 +518,19 @@ class LightingManager(private val engine: PulseEngine) {
                 val y = Maze.centerY(row)
                 light.x = x
                 light.y = y
-                light.intensity = if (auraLightsEnabled) 0.16f + pulse * 0.14f else 0f
-                val breathSize = GI_SOURCE_SIZE_SMALL + coneBreathe * GI_PELLET_BREATHE_RANGE
-                light.width = breathSize
-                light.height = breathSize
+                light.lightColor = Color(1f, 1f, 1f, 1f)
+                light.spill = 1f
+                light.width = GI_PAC_SOURCE_SIZE_MAIN
+                light.height = GI_PAC_SOURCE_SIZE_MAIN
+                if (enhancedPacAuraEnabled) {
+                    light.radius = 320f * (0.85f + auraBreathe * 0.3f)
+                    light.size = 44f
+                    light.intensity = if (auraLightsEnabled) 0.78f + pulse * 0.22f else 0f
+                } else {
+                    light.radius = 220f * (0.85f + auraBreathe * 0.3f)
+                    light.size = 34f
+                    light.intensity = if (auraLightsEnabled) 0.58f + pulse * 0.32f else 0f
+                }
             } else {
                 light.intensity = 0f
             }
@@ -539,42 +551,46 @@ class LightingManager(private val engine: PulseEngine) {
     private fun applyGiIntensityScaling() {
         fun scaleAura(lamp: Lamp?) {
             lamp ?: return
-            lamp.intensity = lamp.intensity * GI_INTENSITY_BOOST
+            lamp.intensity = lamp.intensity * GI_INTENSITY_BOOST * baseLightIntensity
             lamp.radius = 0f
         }
 
         scaleAura(boardBacklight)
         pulseAuraLight?.let {
             scaleAura(it)
-            it.intensity *= GI_PAC_INTENSITY_BOOST
+            it.intensity *= GI_ENTITY_AURA_INTENSITY_BOOST
         }
         pulseAuraRimLight?.let {
             scaleAura(it)
-            it.intensity *= GI_PAC_INTENSITY_BOOST
+            it.intensity *= GI_ENTITY_AURA_INTENSITY_BOOST
         }
         ghostAuraLights.values.forEach {
             scaleAura(it)
-            it.intensity *= GI_GHOST_INTENSITY_BOOST
+            it.intensity *= GI_ENTITY_AURA_INTENSITY_BOOST
         }
         ghostRimLights.values.forEach {
             scaleAura(it)
-            it.intensity *= GI_GHOST_INTENSITY_BOOST
+            it.intensity *= GI_ENTITY_AURA_INTENSITY_BOOST
         }
-        scaleAura(fruitAuraLight)
-        powerPelletAuraLights.values.forEach { scaleAura(it) }
+        fruitAuraLight?.let {
+            scaleAura(it)
+            it.intensity *= GI_ENTITY_AURA_INTENSITY_BOOST
+        }
+        powerPelletAuraLights.values.forEach {
+            scaleAura(it)
+            it.intensity *= GI_ENTITY_AURA_INTENSITY_BOOST
+        }
     }
 
     companion object {
         private const val GI_INTENSITY_BOOST = 3f
         private const val GI_SOURCE_SIZE_SMALL = 12f
         private const val GI_SOURCE_SIZE_LARGE = 30f
-        private const val GI_PAC_INTENSITY_BOOST = 1.8f
+        private const val GI_ENTITY_AURA_INTENSITY_BOOST = 1.8f
         private const val GI_PAC_SOURCE_SIZE_MAIN = 24f
         private const val GI_PAC_SOURCE_SIZE_RIM = 24f
-        private const val GI_GHOST_INTENSITY_BOOST = 1.8f
         private const val GI_GHOST_SOURCE_SIZE_MAIN = 24f
         private const val GI_GHOST_SOURCE_SIZE_RIM = 24f
-        private const val GI_PELLET_BREATHE_RANGE = 6f
         private const val GI_COLOR_GRADING_EFFECT = "gi_color_grading"
     }
 

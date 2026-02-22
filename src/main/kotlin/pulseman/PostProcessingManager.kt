@@ -25,9 +25,9 @@ class PostProcessingManager(private val engine: PulseEngine) {
     var scanlineStrength = 1f
 
     /** The intensity of the bloom effect. */
-    var bloomStrength = 0.75f
+    var bloomStrength = 0.5f
 
-    var auraBloomThreshold = 0.62f
+    var auraBloomThreshold = 0.5f
 
     /**
      * Configures and initializes all enabled post-processing effects on the main surface.
