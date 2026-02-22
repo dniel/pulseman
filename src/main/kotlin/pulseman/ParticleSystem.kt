@@ -178,9 +178,36 @@ class ParticleSystem(private val engine: PulseEngine) {
         emitBurst(x, y, count = 14, speedMin = 26f, speedMax = 88f, lifeMin = 0.24f, lifeMax = 0.58f, sizeMin = 1.6f, sizeMax = 3.6f, red = 1f, green = 0.94f, blue = 0.68f)
     }
 
-    /** Emits a burst of particles when a power pellet is eaten. */
+    /** Emits physics particles when a power pellet is eaten. */
     fun emitPowerPelletParticles(x: Float, y: Float) {
-        emitBurst(x, y, count = 18, speedMin = 30f, speedMax = 92f, lifeMin = 0.32f, lifeMax = 0.62f, sizeMin = 1.8f, sizeMax = 4.2f, red = 1f, green = 0.98f, blue = 0.7f)
+        emitPhysicsTrail(
+            x = x, y = y, count = 56, maxActive = MAX_PHYSICS_BURST_PARTICLES,
+            layerMask = PHYSICS_LAYER_BURST_PARTICLE, collisionMask = PHYSICS_LAYER_WALL,
+            restitution = 0.35f, friction = 0.08f, drag = 0.025f, density = 0.1f,
+            speedMin = 48f, speedMax = 210f, lifeMin = 0.8f, lifeMax = 1.6f,
+            sizeMin = 2.6f, sizeMax = 7.2f, red = 1f, green = 0.98f, blue = 0.7f,
+        )
+        emitPhysicsTrail(
+            x = x, y = y, count = 40, maxActive = MAX_PHYSICS_BURST_PARTICLES,
+            layerMask = PHYSICS_LAYER_BURST_PARTICLE, collisionMask = PHYSICS_LAYER_WALL,
+            restitution = 0.3f, friction = 0.06f, drag = 0.02f, density = 0.1f,
+            speedMin = 30f, speedMax = 145f, lifeMin = 0.8f, lifeMax = 1.6f,
+            sizeMin = 2.4f, sizeMax = 6.4f, red = 1f, green = 0.85f, blue = 0.5f,
+        )
+        emitPhysicsTrail(
+            x = x, y = y, count = 28, maxActive = MAX_PHYSICS_BURST_PARTICLES,
+            layerMask = PHYSICS_LAYER_BURST_PARTICLE, collisionMask = PHYSICS_LAYER_WALL,
+            restitution = 0.25f, friction = 0.04f, drag = 0.015f, density = 0.1f,
+            speedMin = 80f, speedMax = 250f, lifeMin = 0.4f, lifeMax = 1.0f,
+            sizeMin = 1.4f, sizeMax = 3.8f, red = 1f, green = 1f, blue = 0.95f,
+        )
+        emitPhysicsTrail(
+            x = x, y = y, count = 20, maxActive = MAX_PHYSICS_BURST_PARTICLES,
+            layerMask = PHYSICS_LAYER_BURST_PARTICLE, collisionMask = PHYSICS_LAYER_WALL,
+            restitution = 0.3f, friction = 0.06f, drag = 0.02f, density = 0.1f,
+            speedMin = 120f, speedMax = 290f, lifeMin = 0.5f, lifeMax = 1.1f,
+            sizeMin = 2.2f, sizeMax = 4.8f, red = 1f, green = 0.98f, blue = 0.7f,
+        )
     }
 
     /** Emits slow-moving particles in a rotating ring around a power pellet. */
@@ -209,14 +236,37 @@ class ParticleSystem(private val engine: PulseEngine) {
         }
     }
 
-    /** Emits color-coded particles when a ghost is eaten. */
+    /** Emits color-coded physics particles when a ghost is eaten. */
     fun emitGhostEatenParticles(x: Float, y: Float, ghostType: GhostType) {
-        if (!enhancedGhostExplosionsEnabled) {
-            emitBurst(x, y, count = 22, speedMin = 48f, speedMax = 130f, lifeMin = 0.35f, lifeMax = 0.85f, sizeMin = 2f, sizeMax = 4.8f, red = 1f, green = 1f, blue = 1f)
-            return
-        }
-        val color = ghostAuraColor(ghostType)
-        emitBurst(x, y, count = 28, speedMin = 48f, speedMax = 140f, lifeMin = 0.35f, lifeMax = 0.9f, sizeMin = 2f, sizeMax = 5.2f, red = color.red, green = color.green, blue = color.blue)
+        val c = ghostAuraColor(ghostType)
+        emitPhysicsTrail(
+            x = x, y = y, count = 56, maxActive = MAX_PHYSICS_BURST_PARTICLES,
+            layerMask = PHYSICS_LAYER_BURST_PARTICLE, collisionMask = PHYSICS_LAYER_WALL,
+            restitution = 0.35f, friction = 0.08f, drag = 0.025f, density = 0.1f,
+            speedMin = 48f, speedMax = 210f, lifeMin = 0.8f, lifeMax = 1.6f,
+            sizeMin = 2.6f, sizeMax = 7.2f, red = c.red, green = c.green, blue = c.blue,
+        )
+        emitPhysicsTrail(
+            x = x, y = y, count = 40, maxActive = MAX_PHYSICS_BURST_PARTICLES,
+            layerMask = PHYSICS_LAYER_BURST_PARTICLE, collisionMask = PHYSICS_LAYER_WALL,
+            restitution = 0.3f, friction = 0.06f, drag = 0.02f, density = 0.1f,
+            speedMin = 30f, speedMax = 145f, lifeMin = 0.8f, lifeMax = 1.6f,
+            sizeMin = 2.4f, sizeMax = 6.4f, red = c.red * 0.7f, green = c.green * 0.7f, blue = c.blue * 0.7f,
+        )
+        emitPhysicsTrail(
+            x = x, y = y, count = 28, maxActive = MAX_PHYSICS_BURST_PARTICLES,
+            layerMask = PHYSICS_LAYER_BURST_PARTICLE, collisionMask = PHYSICS_LAYER_WALL,
+            restitution = 0.25f, friction = 0.04f, drag = 0.015f, density = 0.1f,
+            speedMin = 80f, speedMax = 250f, lifeMin = 0.4f, lifeMax = 1.0f,
+            sizeMin = 1.4f, sizeMax = 3.8f, red = 1f, green = 1f, blue = 0.95f,
+        )
+        emitPhysicsTrail(
+            x = x, y = y, count = 20, maxActive = MAX_PHYSICS_BURST_PARTICLES,
+            layerMask = PHYSICS_LAYER_BURST_PARTICLE, collisionMask = PHYSICS_LAYER_WALL,
+            restitution = 0.3f, friction = 0.06f, drag = 0.02f, density = 0.1f,
+            speedMin = 120f, speedMax = 290f, lifeMin = 0.5f, lifeMax = 1.1f,
+            sizeMin = 2.2f, sizeMax = 4.8f, red = c.red, green = c.green, blue = c.blue,
+        )
     }
 
     /**
@@ -324,27 +374,41 @@ class ParticleSystem(private val engine: PulseEngine) {
         }
     }
 
-    /** Emits particles matching the color of the consumed fruit. */
+    /** Emits physics particles matching the color of the consumed fruit. */
     fun emitFruitParticles(x: Float, y: Float, type: FruitType) {
-        val color = when (type) {
+        val c = when (type) {
             FruitType.CHERRY, FruitType.STRAWBERRY, FruitType.APPLE -> floatArrayOf(0.96f, 0.2f, 0.2f)
             FruitType.ORANGE -> floatArrayOf(1f, 0.64f, 0.16f)
             FruitType.MELON -> floatArrayOf(0.35f, 0.88f, 0.45f)
             FruitType.GALAXIAN, FruitType.BELL, FruitType.KEY -> floatArrayOf(1f, 0.9f, 0.35f)
         }
-        emitBurst(
-            x,
-            y,
-            count = 26,
-            speedMin = 30f,
-            speedMax = 115f,
-            lifeMin = 0.32f,
-            lifeMax = 0.78f,
-            sizeMin = 1.8f,
-            sizeMax = 4.6f,
-            red = color[0],
-            green = color[1],
-            blue = color[2],
+        emitPhysicsTrail(
+            x = x, y = y, count = 56, maxActive = MAX_PHYSICS_BURST_PARTICLES,
+            layerMask = PHYSICS_LAYER_BURST_PARTICLE, collisionMask = PHYSICS_LAYER_WALL,
+            restitution = 0.35f, friction = 0.08f, drag = 0.025f, density = 0.1f,
+            speedMin = 48f, speedMax = 210f, lifeMin = 0.8f, lifeMax = 1.6f,
+            sizeMin = 2.6f, sizeMax = 7.2f, red = c[0], green = c[1], blue = c[2],
+        )
+        emitPhysicsTrail(
+            x = x, y = y, count = 40, maxActive = MAX_PHYSICS_BURST_PARTICLES,
+            layerMask = PHYSICS_LAYER_BURST_PARTICLE, collisionMask = PHYSICS_LAYER_WALL,
+            restitution = 0.3f, friction = 0.06f, drag = 0.02f, density = 0.1f,
+            speedMin = 30f, speedMax = 145f, lifeMin = 0.8f, lifeMax = 1.6f,
+            sizeMin = 2.4f, sizeMax = 6.4f, red = c[0] * 0.7f, green = c[1] * 0.7f, blue = c[2] * 0.7f,
+        )
+        emitPhysicsTrail(
+            x = x, y = y, count = 28, maxActive = MAX_PHYSICS_BURST_PARTICLES,
+            layerMask = PHYSICS_LAYER_BURST_PARTICLE, collisionMask = PHYSICS_LAYER_WALL,
+            restitution = 0.25f, friction = 0.04f, drag = 0.015f, density = 0.1f,
+            speedMin = 80f, speedMax = 250f, lifeMin = 0.4f, lifeMax = 1.0f,
+            sizeMin = 1.4f, sizeMax = 3.8f, red = 1f, green = 1f, blue = 0.95f,
+        )
+        emitPhysicsTrail(
+            x = x, y = y, count = 20, maxActive = MAX_PHYSICS_BURST_PARTICLES,
+            layerMask = PHYSICS_LAYER_BURST_PARTICLE, collisionMask = PHYSICS_LAYER_WALL,
+            restitution = 0.3f, friction = 0.06f, drag = 0.02f, density = 0.1f,
+            speedMin = 120f, speedMax = 290f, lifeMin = 0.5f, lifeMax = 1.1f,
+            sizeMin = 2.2f, sizeMax = 4.8f, red = c[0], green = c[1], blue = c[2],
         )
     }
 
@@ -626,9 +690,11 @@ class ParticleSystem(private val engine: PulseEngine) {
         private const val GHOST_TURN_BLEND_DECAY = 0.2f
         private const val TRAIL_REAR_OFFSET = 10f
         private const val MAX_PHYSICS_DEATH_PARTICLES = 420
+        private const val MAX_PHYSICS_BURST_PARTICLES = 350
         private const val PHYSICS_LAYER_NONE = 0
         private const val PHYSICS_LAYER_WALL = 1 shl 0
         private const val PHYSICS_LAYER_DEATH_PARTICLE = 1 shl 1
+        private const val PHYSICS_LAYER_BURST_PARTICLE = 1 shl 2
         private val CONFETTI_COLORS = listOf(
             Triple(1f, 0.2f, 0.2f),
             Triple(0.2f, 1f, 0.3f),
