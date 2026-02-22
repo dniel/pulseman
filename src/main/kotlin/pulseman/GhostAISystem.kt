@@ -351,7 +351,7 @@ class GhostAISystem(
 
     /**
      * Returns the per-level ghost dot-release limits as [pinky, inky, clyde].
-     * Sourced from the Pac-Man Dossier: level 1 = [0, 30, 60], level 2 = [0, 0, 50], level 3+ = [0, 0, 0].
+     * Sourced from the arcade dossier: level 1 = [0, 30, 60], level 2 = [0, 0, 50], level 3+ = [0, 0, 0].
      */
     private fun dotLimitsForLevel(level: Int): IntArray = when (level) {
         1    -> intArrayOf(0, 30, 60)

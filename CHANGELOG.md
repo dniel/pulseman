@@ -3,7 +3,7 @@
 ## v2.6
 
 ### Particles
-- Reworked all trail particles (Pac-Man, frightened, ghost) to scatter as independent debris instead of rigidly tracing the grid path.
+- Reworked all trail particles (Pulse-Man, frightened, ghost) to scatter as independent debris instead of rigidly tracing the grid path.
 - Removed directional origin offset, movement velocity bias, turn-blend smoothing, and corner arc-fill from ghost trails.
 - Trail particles now spawn at entity center with higher random velocity and longer life.
 
@@ -24,7 +24,7 @@
 ### Lighting
 - Added a fast white aura pulse for eaten ghosts while returning to the ghost house.
 - Increased power-pellet aura radius/intensity for stronger pickup readability.
-- Aligned ghost aura/rim reach with Pac-Man reach in GI lighting.
+- Aligned ghost aura/rim reach with Pulse-Man reach in GI lighting.
 
 ### Build
 - Set project version to `2.4` for release.
@@ -66,7 +66,7 @@
 
 ### Lighting
 - Removed all ghost-emitted lighting (aura, rim, and cone lights); ghosts no longer act as light sources.
-- Kept Pac-Man, fruit, board, and power-pellet lighting in GI mode.
+- Kept Pulse-Man, fruit, board, and power-pellet lighting in GI mode.
 - Updated attract demo to keep lighting enabled during demo gameplay.
 
 ### UI
@@ -98,8 +98,8 @@
 ## v1.7
 
 ### Level Progression
-- Added ROM-accurate 21-level difficulty table (LevelSpec.kt) sourced from Pac-Man Dossier
-- Per-level Pac-Man speed (normal and frightened) replaces fixed speed
+- Added ROM-accurate 21-level difficulty table (LevelSpec.kt) sourced from arcade dossier
+- Per-level Pulse-Man speed (normal and frightened) replaces fixed speed
 - Per-level ghost speed (normal, frightened, tunnel) replaces formula approximation
 - Per-level Elroy mode thresholds and speeds for Blinky
 - Per-level frightened duration with authentic non-monotonic pattern (0s on levels 17/19-21+)
@@ -118,9 +118,9 @@
 ## v1.6
 
 ### Refactoring
-- Renamed all Pac-Man references to Pulse-Man (package, classes, files, sound assets, display strings)
-- Package `pacman` → `pulseman`, classes `PacmanGame` → `PulseManGame`, `PacmanController` → `PulseManController`
-- Sound files `pacman_*.ogg` → `pulseman_*.ogg`
+- Renamed all legacy references to Pulse-Man (package, classes, files, sound assets, display strings)
+- Renamed package, game class, and controller class to `pulseman`/`PulseManGame`/`PulseManController`
+- Renamed sound files to `pulseman_*.ogg`
 
 ### Fixes
 - Fixed unused `resolution` uniform warning in CRT shader

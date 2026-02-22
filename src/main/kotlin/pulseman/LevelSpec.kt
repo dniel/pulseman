@@ -1,10 +1,10 @@
 package pulseman
 
 /**
- * Per-level difficulty specification matching the original Pac-Man arcade (1980, Namco).
+ * Per-level difficulty specification matching the original Pulse-Man arcade (1980).
  *
  * All speed values are expressed as fractions of [LevelProgression.MAX_SPEED] (1.0 = maximum).
- * Values sourced from the Pac-Man Dossier (Jamey Pittman), verified against arcade ROM analysis.
+ * Values sourced from the arcade dossier (Jamey Pittman), verified against arcade ROM analysis.
  *
  * @property pacSpeed Pulse-Man normal movement speed.
  * @property pacFrightSpeed Pulse-Man movement speed while ghosts are frightened.
@@ -39,7 +39,7 @@ data class LevelSpec(
 /**
  * Lookup table providing [LevelSpec] for each of the 21 distinct difficulty tiers.
  *
- * The original Pac-Man arcade has 255 playable levels before the kill screen at level 256.
+ * The original arcade has 255 playable levels before the kill screen at level 256.
  * Difficulty parameters are unique for levels 1 through 21; levels 22+ repeat level 21 settings.
  *
  * Three scatter/chase timing patterns exist:

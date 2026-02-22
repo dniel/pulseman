@@ -4,7 +4,7 @@ Project-specific instructions for AI agents working on this codebase.
 
 ## Project Overview
 
-Pulse-Man is a Pac-Man clone built with [PulseEngine](https://github.com/niclasnilsson/PulseEngine) (Kotlin/JVM game engine). Single-package (`pulseman`), no submodules, no test suite. All source lives in `src/main/kotlin/pulseman/`.
+Pulse-Man is an arcade game built with [PulseEngine](https://github.com/niclasnilsson/PulseEngine) (Kotlin/JVM game engine). Single-package (`pulseman`), no submodules, no test suite. All source lives in `src/main/kotlin/pulseman/`.
 
 - **Language**: Kotlin 2.3.x, JVM toolchain 23
 - **Build**: Gradle 9.x (Kotlin DSL)

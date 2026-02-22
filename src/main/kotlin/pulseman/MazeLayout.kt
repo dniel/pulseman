@@ -5,7 +5,7 @@ package pulseman
  *
  * - [CLASSIC] uses the single original maze for all levels (faithful to the 1980 arcade).
  * - [MS_PULSEMAN] rotates through four structurally distinct mazes following the
- *   Ms. Pac-Man arcade rotation: maze 1 for levels 1-2, maze 2 for 3-5, maze 3 for 6-9,
+ *   Ms. Pulse-Man arcade rotation: maze 1 for levels 1-2, maze 2 for 3-5, maze 3 for 6-9,
  *   maze 4 for 10-13, then mazes 3 and 4 alternate every 4 rounds indefinitely.
  */
 enum class MazeMode { CLASSIC, MS_PULSEMAN }
@@ -32,12 +32,12 @@ data class MazeLayout(
  * Registry of all available maze layouts and the level-to-maze mapping for each [MazeMode].
  *
  * Contains the original classic layout and four Ms. Pulse-Man layouts inspired by the
- * Ms. Pac-Man arcade (1982). The four Ms. layouts vary in wall structure, dot count,
+ * Ms. Pulse-Man arcade (1982). The four Ms. layouts vary in wall structure, dot count,
  * and wall color while sharing the same ghost house region (rows 8-18).
  */
 object MazeLayouts {
 
-    /** The original 1980 Pac-Man maze — single layout used for all levels in [MazeMode.CLASSIC]. */
+    /** The original 1980 arcade maze — single layout used for all levels in [MazeMode.CLASSIC]. */
     val CLASSIC = MazeLayout(
         name = "Classic",
         ascii = arrayOf(
@@ -226,7 +226,7 @@ object MazeLayouts {
      * Returns the appropriate [MazeLayout] for the given [level] and [mode].
      *
      * In [MazeMode.CLASSIC], always returns [CLASSIC].
-     * In [MazeMode.MS_PULSEMAN], follows the Ms. Pac-Man arcade rotation:
+     * In [MazeMode.MS_PULSEMAN], follows the Ms. Pulse-Man arcade rotation:
      * - Levels 1-2: [MS_1_PINK]
      * - Levels 3-5: [MS_2_BLUE]
      * - Levels 6-9: [MS_3_ORANGE]

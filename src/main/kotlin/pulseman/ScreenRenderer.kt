@@ -213,9 +213,9 @@ class ScreenRenderer(
         val centerX = windowWidth / 2f
         val centerY = windowHeight / 2f
 
-        drawGlowText(s, "PACMAN", centerX, centerY - 120f, fontSize = 72f, red = 1f, green = 0.95f, blue = 0f, xOrigin = 0.5f, yOrigin = 0.5f)
+        drawGlowText(s, "PULSE-MAN", centerX, centerY - 120f, fontSize = 72f, red = 1f, green = 0.95f, blue = 0f, xOrigin = 0.5f, yOrigin = 0.5f)
         s.setDrawColor(1f, 0.95f, 0f, 1f)
-        s.drawText("PACMAN", centerX, centerY - 120f, fontSize = 72f, xOrigin = 0.5f, yOrigin = 0.5f)
+        s.drawText("PULSE-MAN", centerX, centerY - 120f, fontSize = 72f, xOrigin = 0.5f, yOrigin = 0.5f)
 
         s.setDrawColor(0.2f, 0.8f, 1f, 1f)
         s.drawText("© 2026 PULSE ENGINE LTD.", centerX, centerY - 65f, fontSize = 20f, xOrigin = 0.5f, yOrigin = 0.5f)

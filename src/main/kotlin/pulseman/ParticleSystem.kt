@@ -357,7 +357,7 @@ class ParticleSystem(private val engine: PulseEngine) {
     }
 
     /**
-     * Expires all non-death physics trail particles (ghost trails, Pac-Man trail, etc.)
+     * Expires all non-death physics trail particles (ghost trails, Pulse-Man trail, etc.)
      * to prevent ghost trail color contamination of the death burst.
      *
      * Called immediately before [emitDeathParticles] so lingering ghost trail particles
