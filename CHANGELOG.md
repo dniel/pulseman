@@ -1,5 +1,12 @@
 # Changelog
 
+## v2.6
+
+### Particles
+- Reworked all trail particles (Pac-Man, frightened, ghost) to scatter as independent debris instead of rigidly tracing the grid path.
+- Removed directional origin offset, movement velocity bias, turn-blend smoothing, and corner arc-fill from ghost trails.
+- Trail particles now spawn at entity center with higher random velocity and longer life.
+
 ## v2.5
 
 ### Particles

@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "no.dniel"
-version = "2.6-SNAPSHOT"
+version = "2.6"
 
 repositories {
     mavenCentral()
