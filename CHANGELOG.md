@@ -1,9 +1,16 @@
 # Changelog
 
-## v2.5-SNAPSHOT
+## v2.5
 
-### Build
-- Development version for v2.5 cycle.
+### Particles
+- Physics-driven death burst: 144 particles across 4 color layers bounce off maze walls via PulseEngine physics engine.
+- Physics-driven burst effects for ghost eaten, power pellet, and fruit collection events (same 4-layer structure as death burst, color-matched to each event).
+- Fixed ghost trail color contamination of death burst by clearing trail particles before emission.
+
+### Fixes
+- Fixed PhysicsSystem and EntityUpdater being silently destroyed during scene creation (systems registered before `createEmptyAndSetActive` were lost).
+- Fixed PhysicsWallCollider invisible to spatial queries (`DISCOVERABLE` flag was unset, preventing wall collision detection).
+- Fixed fat JAR shader conflict: changed `duplicatesStrategy` from INCLUDE to EXCLUDE so project shader overrides take precedence over engine defaults (fixes broken GI rendering on Mesa/Intel/AMD drivers).
 
 ## v2.4
 
