@@ -42,8 +42,7 @@ class ParticleSystem(private val engine: PulseEngine) {
     private var confettiAccumulator = 0f
     private var lastPulseTrailPosition: Pair<Float, Float>? = null
     private val lastGhostTrailPositions = mutableMapOf<GhostType, Pair<Float, Float>>()
-    private val ghostTrailMotionDirections = mutableMapOf<GhostType, Pair<Float, Float>>()
-    private val ghostTrailTurnBlend = mutableMapOf<GhostType, Float>()
+
     
     var frightenedParticleTrailEnabled = true
     var ambientDustEnabled = true
@@ -59,8 +58,6 @@ class ParticleSystem(private val engine: PulseEngine) {
         confettiAccumulator = 0f
         lastPulseTrailPosition = null
         lastGhostTrailPositions.clear()
-        ghostTrailMotionDirections.clear()
-        ghostTrailTurnBlend.clear()
     }
 
     /**
@@ -415,20 +412,17 @@ class ParticleSystem(private val engine: PulseEngine) {
     /** Emits a trail of particles behind Pulse-Man during normal play. */
     fun emitPulseManTrail(x: Float, y: Float, direction: Direction, phase: GamePhase, frightenedTimer: Float) {
         if (phase != GamePhase.PLAYING && phase != GamePhase.ATTRACT_DEMO) return
-        if (frightenedTimer > 0f) return // Frightened trail takes over
+        if (frightenedTimer > 0f) return
         if (direction == Direction.NONE) return
         if (!hasMovedSinceLastPulseTrail(x, y)) return
 
-        val originX = x - direction.dx * TRAIL_REAR_OFFSET
-        val originY = y - direction.dy * TRAIL_REAR_OFFSET
-
         emitPhysicsTrail(
-            x = originX,
-            y = originY,
-            count = 1,
-            speedMin = 8f, speedMax = 20f,
-            lifeMin = 0.2f, lifeMax = 0.5f,
-            sizeMin = 1.4f, sizeMax = 2.8f,
+            x = x,
+            y = y,
+            count = 2,
+            speedMin = 18f, speedMax = 55f,
+            lifeMin = 0.4f, lifeMax = 0.9f,
+            sizeMin = 1.2f, sizeMax = 2.6f,
             red = 1f, green = 0.9f, blue = 0.1f,
         )
     }
@@ -441,28 +435,24 @@ class ParticleSystem(private val engine: PulseEngine) {
         if (direction == Direction.NONE) return
         if (!hasMovedSinceLastPulseTrail(x, y)) return
 
-        val originX = x - direction.dx * TRAIL_REAR_OFFSET
-        val originY = y - direction.dy * TRAIL_REAR_OFFSET
-
         val count = if (Random.nextFloat() > 0.4f) 3 else 2
         emitPhysicsTrail(
-            x = originX,
-            y = originY,
+            x = x,
+            y = y,
             count = count,
-            speedMin = 15f, speedMax = 45f,
-            lifeMin = 0.4f, lifeMax = 0.8f,
-            sizeMin = 2.0f, sizeMax = 4.0f,
+            speedMin = 22f, speedMax = 60f,
+            lifeMin = 0.5f, lifeMax = 1.0f,
+            sizeMin = 1.6f, sizeMax = 3.6f,
             red = 0.3f, green = 0.5f, blue = 1f,
         )
     }
 
     /**
-     * Emits a movement trail for a ghost using mode-aware color and behind-sprite origin.
+     * Emits a movement trail for a ghost using mode-aware color.
      *
-     * Emission is skipped unless the ghost is active and has moved since the previous trail sample.
-     * Spawn origin is offset one tile opposite the measured movement delta so trail placement stays
-     * behind real motion even through corners and tunnel wrapping. Initial velocity receives
-     * movement-delta bias to smooth corner transitions.
+     * Particles spawn at the ghost center with random velocity so they scatter
+     * independently as debris rather than rigidly following the ghost path.
+     * Eaten ghosts emit more particles for a denser trail.
      */
     fun emitGhostTrail(ghost: GhostState, x: Float, y: Float, phase: GamePhase) {
         if (phase != GamePhase.PLAYING && phase != GamePhase.ATTRACT_DEMO) return
@@ -481,6 +471,10 @@ class ParticleSystem(private val engine: PulseEngine) {
         val deltaY = y - previous.second
         if (abs(deltaX) < 0.001f && abs(deltaY) < 0.001f) return
 
+        val deltaLength = sqrt(deltaX * deltaX + deltaY * deltaY)
+        if (deltaLength < 0.001f) return
+        if (deltaLength > MAX_TRAIL_STEP_DELTA) return
+
         val color = when (ghost.mode) {
             GhostMode.EATEN -> floatArrayOf(1f, 1f, 1f)
             GhostMode.FRIGHTENED -> {
@@ -493,93 +487,21 @@ class ParticleSystem(private val engine: PulseEngine) {
             }
         }
 
-        val deltaLength = sqrt(deltaX * deltaX + deltaY * deltaY)
-        if (deltaLength < 0.001f) return
-        if (deltaLength > MAX_TRAIL_STEP_DELTA) {
-            ghostTrailMotionDirections.remove(ghost.type)
-            ghostTrailTurnBlend.remove(ghost.type)
-            return
-        }
-        val motionDirX = deltaX / deltaLength
-        val motionDirY = deltaY / deltaLength
-
-        val previousDir = ghostTrailMotionDirections[ghost.type]
-        var turnBlend = ghostTrailTurnBlend[ghost.type] ?: 0f
-        var turned = false
-        if (previousDir != null) {
-            val alignment = (previousDir.first * motionDirX + previousDir.second * motionDirY).coerceIn(-1f, 1f)
-            if (alignment < 0.98f) {
-                turnBlend = 1f
-                turned = true
-            }
-        }
-
-        val previousDirX = previousDir?.first ?: motionDirX
-        val previousDirY = previousDir?.second ?: motionDirY
-        val blendedDirX = previousDirX * turnBlend + motionDirX * (1f - turnBlend)
-        val blendedDirY = previousDirY * turnBlend + motionDirY * (1f - turnBlend)
-        val blendedLength = sqrt(blendedDirX * blendedDirX + blendedDirY * blendedDirY).coerceAtLeast(0.001f)
-        val smoothedDirX = blendedDirX / blendedLength
-        val smoothedDirY = blendedDirY / blendedLength
-
-        val originX = x - smoothedDirX * TRAIL_REAR_OFFSET
-        val originY = y - smoothedDirY * TRAIL_REAR_OFFSET
-        val biasSpeed = deltaLength * 6f
-        val currentBiasVx = motionDirX * biasSpeed
-        val currentBiasVy = motionDirY * biasSpeed
-        val previousBiasVx = previousDirX * biasSpeed
-        val previousBiasVy = previousDirY * biasSpeed
-        val biasVx = previousBiasVx * turnBlend + currentBiasVx * (1f - turnBlend)
-        val biasVy = previousBiasVy * turnBlend + currentBiasVy * (1f - turnBlend)
-        ghostTrailMotionDirections[ghost.type] = motionDirX to motionDirY
-        ghostTrailTurnBlend[ghost.type] = (turnBlend - GHOST_TURN_BLEND_DECAY).coerceAtLeast(0f)
-
-        val count = if (ghost.mode == GhostMode.EATEN) 2 else 1
+        val count = if (ghost.mode == GhostMode.EATEN) 3 else 1
         emitPhysicsTrail(
-            x = originX,
-            y = originY,
+            x = x,
+            y = y,
             count = count,
-            speedMin = 14f,
-            speedMax = 34f,
-            biasVx = biasVx,
-            biasVy = biasVy,
-            lifeMin = 0.2f,
-            lifeMax = 0.5f,
-            sizeMin = 1.4f,
-            sizeMax = 2.8f,
+            speedMin = 18f,
+            speedMax = 55f,
+            lifeMin = 0.4f,
+            lifeMax = 0.9f,
+            sizeMin = 1.2f,
+            sizeMax = 2.6f,
             red = color[0],
             green = color[1],
             blue = color[2],
         )
-
-        if (turned && previousDir != null) {
-            repeat(2) { index ->
-                val t = (index + 1f) / 3f
-                val arcDirX = previousDir.first * (1f - t) + motionDirX * t
-                val arcDirY = previousDir.second * (1f - t) + motionDirY * t
-                val arcLength = sqrt(arcDirX * arcDirX + arcDirY * arcDirY).coerceAtLeast(0.001f)
-                val arcNormX = arcDirX / arcLength
-                val arcNormY = arcDirY / arcLength
-                val arcOriginX = x - arcNormX * TRAIL_REAR_OFFSET
-                val arcOriginY = y - arcNormY * TRAIL_REAR_OFFSET
-                emitPhysicsTrail(
-                    x = arcOriginX,
-                    y = arcOriginY,
-                    count = 1,
-                    speedMin = 14f,
-                    speedMax = 34f,
-                    biasVx = arcNormX * biasSpeed,
-                    biasVy = arcNormY * biasSpeed,
-                    lifeMin = 0.2f,
-                    lifeMax = 0.45f,
-                    sizeMin = 1.2f,
-                    sizeMax = 2.6f,
-                    red = color[0],
-                    green = color[1],
-                    blue = color[2],
-                )
-            }
-        }
     }
 
     /** Periodically emits ambient dust particles within the maze boundaries. */
@@ -679,16 +601,12 @@ class ParticleSystem(private val engine: PulseEngine) {
     fun resetTrailTracking() {
         lastPulseTrailPosition = null
         lastGhostTrailPositions.clear()
-        ghostTrailMotionDirections.clear()
-        ghostTrailTurnBlend.clear()
     }
 
     companion object {
         private const val MAX_PARTICLES = 400
         private const val MAX_PHYSICS_TRAIL_PARTICLES = 260
         private const val MAX_TRAIL_STEP_DELTA = 22f
-        private const val GHOST_TURN_BLEND_DECAY = 0.2f
-        private const val TRAIL_REAR_OFFSET = 10f
         private const val MAX_PHYSICS_DEATH_PARTICLES = 420
         private const val MAX_PHYSICS_BURST_PARTICLES = 350
         private const val PHYSICS_LAYER_NONE = 0
