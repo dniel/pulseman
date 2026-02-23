@@ -3,3 +3,4 @@ build/
 .kotlin/
 hs_err_pid*.log
 crash_report_*.txt
+.sisyphus/
