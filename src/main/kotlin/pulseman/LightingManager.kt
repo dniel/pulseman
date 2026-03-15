@@ -123,10 +123,11 @@ class LightingManager(private val engine: PulseEngine) {
             ambientLight = giSceneBrightnessAmbient()
             ambientInteriorLight = Color(0.01f, 0.01f, 0.03f, 1f)
             skyLight = false
-            lightTexScale = 0.1f
+            lightTexScale = 0.25f
             localSceneTexScale = 0.25f
-            globalSceneTexScale = 0.25f
+            globalSceneTexScale = 0.01f
             globalWorldScale = 4f
+            traceWorldRays = false
             upscaleSmaleSources = false
             dithering = 1.0f
             normalMapScale = 0f
@@ -137,7 +138,7 @@ class LightingManager(private val engine: PulseEngine) {
             sourceIntensity = 1.35f
             targetSurface = if (lightingTargetMainEnabled) "main" else ""
             maxCascades = 8
-            maxSteps = 30
+            maxSteps = 20
             enabled = lightingEnabled
         }
         engine.scene.addSystem(giSystem!!)
