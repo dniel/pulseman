@@ -24,21 +24,24 @@ class HUDRenderer(
         attractDemoGameOverTimer: Float,
         windowWidth: Int,
         windowHeight: Int,
+        scale: Float,
+        marginX: Float,
+        marginY: Float,
     ) {
         val scoreText = scoreManager.score.toString().padStart(6, '0')
         val highScoreText = scoreManager.highScore.toString().padStart(6, '0')
 
         s.setDrawColor(0.95f, 0.95f, 0.95f, 1f)
-        s.drawText("1UP", 20f, 15f, fontSize = 20f)
-        s.drawText(scoreText, 20f, 36f, fontSize = 24f)
+        s.drawText("1UP", marginX + 20f * scale, marginY + 15f * scale, fontSize = 20f)
+        s.drawText(scoreText, marginX + 20f * scale, marginY + 36f * scale, fontSize = 24f)
 
-        s.drawText("HIGH SCORE", windowWidth / 2f, 15f, fontSize = 20f, xOrigin = 0.5f)
-        s.drawText(highScoreText, windowWidth / 2f, 36f, fontSize = 24f, xOrigin = 0.5f)
+        s.drawText("HIGH SCORE", windowWidth / 2f, marginY + 15f * scale, fontSize = 20f, xOrigin = 0.5f)
+        s.drawText(highScoreText, windowWidth / 2f, marginY + 36f * scale, fontSize = 24f, xOrigin = 0.5f)
 
-        s.drawText("LEVEL ${level.toString().padStart(2, '0')}", 640f, 15f, fontSize = 20f)
-        s.drawText("LIVES", 640f, 36f, fontSize = 16f)
+        s.drawText("LEVEL ${level.toString().padStart(2, '0')}", marginX + 640f * scale, marginY + 15f * scale, fontSize = 20f)
+        s.drawText("LIVES", marginX + 640f * scale, marginY + 36f * scale, fontSize = 16f)
         for (i in 0 until lives) {
-            drawLifeIcon(s, 702f + i * 24f, 45f, 8f)
+            drawLifeIcon(s, marginX + (702f + i * 24f) * scale, marginY + 45f * scale, 8f * scale)
         }
 
         val pulseAlpha = (0.65f + 0.35f * (0.5f + 0.5f * sin(uiPulseTime * 4f))).coerceIn(0.45f, 1f)
@@ -48,7 +51,7 @@ class HUDRenderer(
                 s.drawText(
                     "READY!",
                     windowWidth / 2f,
-                    Maze.centerY(17),
+                    marginY + Maze.centerY(17) * scale,
                     fontSize = 28f,
                     xOrigin = 0.5f,
                     yOrigin = 0.5f,
@@ -60,7 +63,7 @@ class HUDRenderer(
                 s.drawText(
                     "GAME OVER",
                     windowWidth / 2f,
-                    Maze.centerY(17),
+                    marginY + Maze.centerY(17) * scale,
                     fontSize = 36f,
                     xOrigin = 0.5f,
                     yOrigin = 0.5f,
@@ -69,7 +72,7 @@ class HUDRenderer(
                 s.drawText(
                     "Press ENTER to restart",
                     windowWidth / 2f,
-                    Maze.centerY(17) + 40f,
+                    marginY + (Maze.centerY(17) + 40f) * scale,
                     fontSize = 18f,
                     xOrigin = 0.5f,
                     yOrigin = 0.5f,
@@ -81,7 +84,7 @@ class HUDRenderer(
                 s.drawText(
                     "YOU WIN!",
                     windowWidth / 2f,
-                    Maze.centerY(17),
+                    marginY + Maze.centerY(17) * scale,
                     fontSize = 36f,
                     xOrigin = 0.5f,
                     yOrigin = 0.5f,
@@ -93,7 +96,7 @@ class HUDRenderer(
                 s.drawText(
                     "LEVEL $level",
                     windowWidth / 2f,
-                    Maze.centerY(17),
+                    marginY + Maze.centerY(17) * scale,
                     fontSize = 34f,
                     xOrigin = 0.5f,
                     yOrigin = 0.5f,
@@ -108,7 +111,7 @@ class HUDRenderer(
                     s.drawText(
                         "GAME OVER",
                         windowWidth / 2f,
-                        Maze.centerY(17),
+                        marginY + Maze.centerY(17) * scale,
                         fontSize = 34f,
                         xOrigin = 0.5f,
                         yOrigin = 0.5f,
@@ -117,7 +120,7 @@ class HUDRenderer(
                     s.drawText(
                         "DEMO PLAY",
                         windowWidth / 2f,
-                        Maze.centerY(17) + 34f,
+                        marginY + (Maze.centerY(17) + 34f) * scale,
                         fontSize = 16f,
                         xOrigin = 0.5f,
                         yOrigin = 0.5f,

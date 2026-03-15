@@ -114,19 +114,21 @@ class ServiceMenuManager(
     /**
      * Renders the service menu overlay.
      */
-    fun render(s: Surface, windowWidth: Float, windowHeight: Float) {
+    fun render(s: Surface, windowWidth: Float, windowHeight: Float, scale: Float, marginX: Float, marginY: Float) {
         s.setDrawColor(0f, 0f, 0f, 0.85f)
         s.drawQuad(0f, 0f, windowWidth, windowHeight)
 
         val centerX = windowWidth / 2f
-        val titleY = 60f
+        val titleY = marginY + 60f * scale
 
         s.setDrawColor(0f, 1f, 1f, 1f)
         s.drawText("SERVICE MENU", centerX, titleY, fontSize = 38f, xOrigin = 0.5f, yOrigin = 0.5f)
 
-        val startY = 100f
+        val startY = marginY + 100f * scale
         val lineHeight = 18f
         var yOffset = startY
+        val labelX = centerX - 200f
+        val valueX = centerX + 200f
 
         for (i in menuItems.indices) {
             val item = menuItems[i]
@@ -135,7 +137,7 @@ class ServiceMenuManager(
             when (item.type) {
                 MenuItemType.Header -> {
                     s.setDrawColor(1f, 0.8f, 0f, 1f)
-                    s.drawText(item.label, centerX - 200f, yOffset, fontSize = 18f)
+                    s.drawText(item.label, labelX, yOffset, fontSize = 18f)
                 }
 
                 MenuItemType.Toggle -> {
@@ -144,10 +146,10 @@ class ServiceMenuManager(
                     val prefix = if (isSelected) "> " else "  "
 
                     s.setDrawColor(0.9f, 0.9f, 0.9f, 1f)
-                    s.drawText("$prefix${item.label}", centerX - 200f, yOffset, fontSize = 16f)
+                    s.drawText("$prefix${item.label}", labelX, yOffset, fontSize = 16f)
 
                     s.setDrawColor(if (value) 0f else 0.5f, if (value) 1f else 0.5f, 0f, 1f)
-                    s.drawText(valueText, centerX + 200f, yOffset, fontSize = 16f)
+                    s.drawText(valueText, valueX, yOffset, fontSize = 16f)
                 }
 
                 MenuItemType.Slider -> {
@@ -156,10 +158,10 @@ class ServiceMenuManager(
                     val prefix = if (isSelected) "> " else "  "
 
                     s.setDrawColor(0.9f, 0.9f, 0.9f, 1f)
-                    s.drawText("$prefix${item.label}", centerX - 200f, yOffset, fontSize = 16f)
+                    s.drawText("$prefix${item.label}", labelX, yOffset, fontSize = 16f)
 
                     s.setDrawColor(0f, 0.8f, 1f, 1f)
-                    s.drawText(valueText, centerX + 200f, yOffset, fontSize = 16f)
+                    s.drawText(valueText, valueX, yOffset, fontSize = 16f)
                 }
 
                 MenuItemType.Cycle -> {
@@ -175,10 +177,10 @@ class ServiceMenuManager(
                     val prefix = if (isSelected) "> " else "  "
 
                     s.setDrawColor(0.9f, 0.9f, 0.9f, 1f)
-                    s.drawText("$prefix${item.label}", centerX - 200f, yOffset, fontSize = 16f)
+                    s.drawText("$prefix${item.label}", labelX, yOffset, fontSize = 16f)
 
                     s.setDrawColor(1f, 0.7f, 0f, 1f)
-                    s.drawText(valueText, centerX + 200f, yOffset, fontSize = 16f)
+                    s.drawText(valueText, valueX, yOffset, fontSize = 16f)
                 }
             }
 

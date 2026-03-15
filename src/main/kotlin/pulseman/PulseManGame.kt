@@ -10,9 +10,23 @@ import no.njoh.pulseengine.modules.metrics.MetricViewer
 import no.njoh.pulseengine.modules.metrics.GpuMonitor
 import no.njoh.pulseengine.modules.physics.PhysicsSystem
 import no.njoh.pulseengine.modules.scene.systems.EntityUpdater
-import kotlin.math.*
+import org.lwjgl.glfw.GLFW
+import kotlin.math.abs
+import kotlin.math.min
+import kotlin.math.sin
 
-fun main() = PulseEngine.run<PulseManGame>()
+private var requestedResolution: Pair<Int, Int>? = null
+
+fun main(args: Array<String>) {
+    requestedResolution = when {
+        args.any { it == "--240p" || it == "240p" } -> 320 to 240
+        args.any { it == "--480p" || it == "480p" } -> 640 to 480
+        args.any { it == "--720p" || it == "720p" } -> 1280 to 720
+        args.any { it == "--1080p" || it == "1080p" } -> 1920 to 1080
+        else -> null
+    }
+    PulseEngine.run<PulseManGame>()
+}
 
 /**
  * Main game orchestrator for the Pulse-Man application.
@@ -102,6 +116,8 @@ class PulseManGame : PulseEngineGame() {
         lighting.setupSceneLighting()
         engine.scene.addSystem(physicsSystem)
         engine.scene.addSystem(EntityUpdater())
+        applyRequestedResolution()
+        applyResolutionScale()
     }
 
      override fun onDestroy() {
@@ -400,6 +416,7 @@ class PulseManGame : PulseEngineGame() {
      */
     override fun onFixedUpdate() {
         val dt = engine.data.fixedDeltaTime
+        applyResolutionScale()
         uiPulseTime += dt
         if (serviceMenu.isOpen) return
 
@@ -565,6 +582,7 @@ class PulseManGame : PulseEngineGame() {
         val s = engine.gfx.mainSurface
         val uiSurface = engine.gfx.getSurfaceOrDefault(UI_SURFACE_NAME)
         cameraShake.apply(engine.gfx.mainCamera)
+        applyCameraOffset()
         val gameplayPhase = isGameplayVisualPhase()
         if (postProcessing.crtEnabled && !postProcessing.hasMainCrtEffect()) {
             postProcessing.ensureCRTEffects()
@@ -594,15 +612,21 @@ class PulseManGame : PulseEngineGame() {
             particleSystem.renderParticles(s)
             scoreManager.render(s)
             if (geometryTestOverlayEnabled) {
-                gameplayRenderer.renderGeometryTestOverlay(s, engine.window.width.toFloat(), engine.window.height.toFloat())
+                gameplayRenderer.renderGeometryTestOverlay(s, VIRTUAL_WIDTH, VIRTUAL_HEIGHT)
             }
-            hudRenderer.renderUI(uiSurface, phase, level, lives, uiPulseTime, attractDemoGameOverTimer, engine.window.width, engine.window.height)
+            val uiScale = min(engine.window.width / VIRTUAL_WIDTH, engine.window.height / VIRTUAL_HEIGHT)
+            val uiMarginX = (engine.window.width - VIRTUAL_WIDTH * uiScale) / 2f
+            val uiMarginY = (engine.window.height - VIRTUAL_HEIGHT * uiScale) / 2f
+            hudRenderer.renderUI(uiSurface, phase, level, lives, uiPulseTime, attractDemoGameOverTimer, engine.window.width, engine.window.height, uiScale, uiMarginX, uiMarginY)
         } else {
             uiSurface.setBackgroundColor(0f, 0f, 0f, 0f)
-            screenRenderer.renderStartupScreen(s, phase, bootTimer, bootDuration, attractTimer, uiPulseTime, engine.window.width, engine.window.height)
+            screenRenderer.renderStartupScreen(s, phase, bootTimer, bootDuration, attractTimer, uiPulseTime, VIRTUAL_WIDTH.toInt(), VIRTUAL_HEIGHT.toInt())
         }
         if (serviceMenu.isOpen) {
-            serviceMenu.render(uiSurface, engine.window.width.toFloat(), engine.window.height.toFloat())
+            val uiScale = min(engine.window.width / VIRTUAL_WIDTH, engine.window.height / VIRTUAL_HEIGHT)
+            val uiMarginX = (engine.window.width - VIRTUAL_WIDTH * uiScale) / 2f
+            val uiMarginY = (engine.window.height - VIRTUAL_HEIGHT * uiScale) / 2f
+            serviceMenu.render(uiSurface, engine.window.width.toFloat(), engine.window.height.toFloat(), uiScale, uiMarginX, uiMarginY)
         }
     }
 
@@ -622,6 +646,30 @@ class PulseManGame : PulseEngineGame() {
         GamePhase.TITLE_POINTS,
         GamePhase.HI_SCORE,
     )
+
+    private fun applyRequestedResolution() {
+        val (w, h) = requestedResolution ?: return
+        requestedResolution = null
+        val handle = GLFW.glfwGetCurrentContext()
+        GLFW.glfwSetWindowSize(handle, w, h)
+        val vidMode = GLFW.glfwGetVideoMode(GLFW.glfwGetPrimaryMonitor()) ?: return
+        GLFW.glfwSetWindowPos(handle, (vidMode.width() - w) / 2, (vidMode.height() - h) / 2)
+    }
+
+    private fun applyResolutionScale() {
+        val scale = min(engine.window.width / VIRTUAL_WIDTH, engine.window.height / VIRTUAL_HEIGHT)
+        engine.gfx.mainCamera.scale.set(scale, scale, 1f)
+    }
+
+    private fun applyCameraOffset() {
+        val cam = engine.gfx.mainCamera
+        val s = min(engine.window.width / VIRTUAL_WIDTH, engine.window.height / VIRTUAL_HEIGHT)
+        cam.scale.set(s, s, 1f)
+        val offsetX = (engine.window.width / s - VIRTUAL_WIDTH) / 2f
+        val offsetY = (engine.window.height / s - VIRTUAL_HEIGHT) / 2f
+        cam.position.x += offsetX
+        cam.position.y += offsetY
+    }
 
     private fun resetGame() {
         serviceMenu.isOpen = false
@@ -810,6 +858,9 @@ class PulseManGame : PulseEngineGame() {
     companion object {
         private const val UI_SURFACE_NAME = "pulseman_ui"
         private const val SHAKE_EVENT_IMPULSE = 0.45f
+
+        private const val VIRTUAL_WIDTH = 800f
+        private const val VIRTUAL_HEIGHT = 800f
     }
 }
 
