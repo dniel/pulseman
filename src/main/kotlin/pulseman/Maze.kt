@@ -35,11 +35,11 @@ object Maze {
     /** Number of rows in the maze grid. */
     const val ROWS = 28
     /** Side length of each tile in pixels. */
-    const val TILE = 24
+    const val TILE = 12
     /** Horizontal pixel offset to position the maze on screen. */
-    const val OFFSET_X = 64f
+    const val OFFSET_X = 32f
     /** Vertical pixel offset to position the maze on screen. */
-    const val OFFSET_Y = 60f
+    const val OFFSET_Y = 30f
 
     const val WALL = 0
     const val DOT = 1

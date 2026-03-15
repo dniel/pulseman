@@ -40,7 +40,7 @@ class ScoreManager {
         while (iterator.hasNext()) {
             val popup = iterator.next()
             popup.timer -= dt
-            popup.y -= dt * 28f
+            popup.y -= dt * 14f
             if (popup.timer <= 0f) iterator.remove()
         }
     }
@@ -52,7 +52,7 @@ class ScoreManager {
         for (popup in popups) {
             val alpha = popup.timer.coerceIn(0f, 1f)
             surface.setDrawColor(1f, 1f, 1f, alpha)
-            surface.drawText(popup.text, popup.x, popup.y, fontSize = 18f, xOrigin = 0.5f, yOrigin = 0.5f)
+            surface.drawText(popup.text, popup.x, popup.y, fontSize = 9f, xOrigin = 0.5f, yOrigin = 0.5f)
         }
     }
 

@@ -130,7 +130,7 @@ class LightingManager(private val engine: PulseEngine) {
             upscaleSmaleSources = false
             dithering = 1.0f
             normalMapScale = 0f
-            aoRadius = 18f
+            aoRadius = 9f
             aoStrength = 1.0f
             intervalLength = 1.8f
             bounceAccumulation = 0.55f
@@ -163,7 +163,7 @@ class LightingManager(private val engine: PulseEngine) {
                 lightColor = Color(0.44f, 0.62f, 0.9f, 1f)
                 intensity = 0.55f
                 this.radius = radius
-                size = 220f
+                size = 110f
                 coneAngle = 360f
                 spill = 1f
             }
@@ -176,14 +176,14 @@ class LightingManager(private val engine: PulseEngine) {
     private fun createAuraLights() {
         pulseAuraLight = createAuraLamp(
             color = Color(1f, 0.9f, 0.2f, 1f),
-            radius = 220f,
-            size = 34f,
+            radius = 110f,
+            size = 17f,
             intensity = 0.9f,
         )
         pulseAuraRimLight = createAuraLamp(
             color = Color(1f, 0.9f, 0.2f, 0.6f),
-            radius = 320f,
-            size = 46f,
+            radius = 160f,
+            size = 23f,
             intensity = 0.35f,
         )
 
@@ -191,8 +191,8 @@ class LightingManager(private val engine: PulseEngine) {
 
         fruitAuraLight = createAuraLamp(
             color = Color(1f, 0.45f, 0.22f, 1f),
-            radius = 180f,
-            size = 28f,
+            radius = 90f,
+            size = 14f,
             intensity = 0f,
         )
 
@@ -208,14 +208,14 @@ class LightingManager(private val engine: PulseEngine) {
         for (type in GhostType.entries) {
             ghostAuraLights[type] = createAuraLamp(
                 color = ghostAuraColor(type),
-                radius = 240f,
-                size = 30f,
+                radius = 120f,
+                size = 15f,
                 intensity = 0f,
             )
             ghostRimLights[type] = createAuraLamp(
                 color = ghostRimColor(type),
-                radius = 320f,
-                size = 40f,
+                radius = 160f,
+                size = 20f,
                 intensity = 0f,
             )
         }
@@ -234,8 +234,8 @@ class LightingManager(private val engine: PulseEngine) {
                 val key = col to row
                 powerPelletAuraLights[key] = createAuraLamp(
                     color = Color(1f, 1f, 1f, 1f),
-                    radius = 320f,
-                    size = 44f,
+                    radius = 160f,
+                    size = 22f,
                     intensity = 0.9f,
                 )
             }
@@ -397,12 +397,12 @@ class LightingManager(private val engine: PulseEngine) {
             width = GI_PAC_SOURCE_SIZE_MAIN
             height = GI_PAC_SOURCE_SIZE_MAIN
             if (enhancedPacAuraEnabled) {
-                radius = 320f * (0.85f + auraBreathe * 0.3f)
-                size = 44f
+                radius = 160f * (0.85f + auraBreathe * 0.3f)
+                size = 22f
                 intensity = if (auraLightsEnabled) 0.78f + pulse * 0.22f else 0f
             } else {
-                radius = 220f * (0.85f + auraBreathe * 0.3f)
-                size = 34f
+                radius = 110f * (0.85f + auraBreathe * 0.3f)
+                size = 17f
                 intensity = if (auraLightsEnabled) 0.58f + pulse * 0.32f else 0f
             }
          }
@@ -412,9 +412,9 @@ class LightingManager(private val engine: PulseEngine) {
             spill = 1f
             width = GI_PAC_SOURCE_SIZE_RIM
             height = GI_PAC_SOURCE_SIZE_RIM
-            val baseRadius = if (enhancedPacAuraEnabled) 380f else 270f
+            val baseRadius = if (enhancedPacAuraEnabled) 190f else 135f
             radius = baseRadius * (0.88f + auraBreathe * 0.24f)
-            size = if (enhancedPacAuraEnabled) 52f else 40f
+            size = if (enhancedPacAuraEnabled) 26f else 20f
             val mainIntensity = pulseAuraLight?.intensity ?: 0f
             intensity = if (auraLightsEnabled) mainIntensity * 0.3f else 0f
         }
@@ -439,8 +439,8 @@ class LightingManager(private val engine: PulseEngine) {
                     spill = 1f
                     width = GI_GHOST_SOURCE_SIZE_MAIN
                     height = GI_GHOST_SOURCE_SIZE_MAIN
-                    radius = 320f * (0.85f + eatenBreathe * 0.3f)
-                    size = 44f
+                    radius = 160f * (0.85f + eatenBreathe * 0.3f)
+                    size = 22f
                     intensity = if (auraLightsEnabled) 0.78f + eatenPulse * 0.22f else 0f
                 }
                 rimLight?.intensity = 0f
@@ -458,11 +458,11 @@ class LightingManager(private val engine: PulseEngine) {
                 width = GI_GHOST_SOURCE_SIZE_MAIN
                 height = GI_GHOST_SOURCE_SIZE_MAIN
                 radius = if (enhancedPacAuraEnabled) {
-                    320f * (0.85f + auraBreathe * 0.3f)
+                    160f * (0.85f + auraBreathe * 0.3f)
                 } else {
-                    220f * (0.85f + auraBreathe * 0.3f)
+                    110f * (0.85f + auraBreathe * 0.3f)
                 }
-                size = if (enhancedPacAuraEnabled) 44f else 34f
+                size = if (enhancedPacAuraEnabled) 22f else 17f
                 val intensityBoost = if (ghost.mode == GhostMode.FRIGHTENED) 1.18f else 1f
                 val baseIntensity = if (enhancedPacAuraEnabled) {
                     0.78f + pulse * 0.22f
@@ -479,9 +479,9 @@ class LightingManager(private val engine: PulseEngine) {
                 spill = 1f
                 width = GI_GHOST_SOURCE_SIZE_RIM
                 height = GI_GHOST_SOURCE_SIZE_RIM
-                val baseRadius = if (enhancedPacAuraEnabled) 380f else 270f
+                val baseRadius = if (enhancedPacAuraEnabled) 190f else 135f
                 radius = baseRadius * (0.88f + auraBreathe * 0.24f)
-                size = if (enhancedPacAuraEnabled) 52f else 40f
+                size = if (enhancedPacAuraEnabled) 26f else 20f
                 val mainIntensity = auraLight?.intensity ?: 0f
                 intensity = if (auraLightsEnabled) mainIntensity * 0.3f else 0f
             }
@@ -530,12 +530,12 @@ class LightingManager(private val engine: PulseEngine) {
                 light.width = GI_PAC_SOURCE_SIZE_MAIN
                 light.height = GI_PAC_SOURCE_SIZE_MAIN
                 if (enhancedPacAuraEnabled) {
-                    light.radius = 320f * (0.85f + auraBreathe * 0.3f)
-                    light.size = 44f
+                    light.radius = 160f * (0.85f + auraBreathe * 0.3f)
+                    light.size = 22f
                     light.intensity = if (auraLightsEnabled) 0.78f + pulse * 0.22f else 0f
                 } else {
-                    light.radius = 220f * (0.85f + auraBreathe * 0.3f)
-                    light.size = 34f
+                    light.radius = 110f * (0.85f + auraBreathe * 0.3f)
+                    light.size = 17f
                     light.intensity = if (auraLightsEnabled) 0.58f + pulse * 0.32f else 0f
                 }
             } else {
@@ -594,13 +594,13 @@ class LightingManager(private val engine: PulseEngine) {
 
     companion object {
         private const val GI_INTENSITY_BOOST = 3f
-        private const val GI_SOURCE_SIZE_SMALL = 12f
-        private const val GI_SOURCE_SIZE_LARGE = 30f
+        private const val GI_SOURCE_SIZE_SMALL = 6f
+        private const val GI_SOURCE_SIZE_LARGE = 15f
         private const val GI_ENTITY_AURA_INTENSITY_BOOST = 1.8f
-        private const val GI_PAC_SOURCE_SIZE_MAIN = 24f
-        private const val GI_PAC_SOURCE_SIZE_RIM = 24f
-        private const val GI_GHOST_SOURCE_SIZE_MAIN = 24f
-        private const val GI_GHOST_SOURCE_SIZE_RIM = 24f
+        private const val GI_PAC_SOURCE_SIZE_MAIN = 12f
+        private const val GI_PAC_SOURCE_SIZE_RIM = 12f
+        private const val GI_GHOST_SOURCE_SIZE_MAIN = 12f
+        private const val GI_GHOST_SOURCE_SIZE_RIM = 12f
         private const val GI_COLOR_GRADING_EFFECT = "gi_color_grading"
     }
 

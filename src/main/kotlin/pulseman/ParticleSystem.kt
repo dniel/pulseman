@@ -75,7 +75,7 @@ class ParticleSystem(private val engine: PulseEngine) {
             p.x += p.vx * dt
             p.y += p.vy * dt
             p.vx *= 0.985f
-            p.vy = p.vy * 0.985f + 5f * dt
+            p.vy = p.vy * 0.985f + 2.5f * dt
             p.size *= 0.992f
         }
         while (particles.size > MAX_PARTICLES) particles.removeFirst()
@@ -176,29 +176,29 @@ class ParticleSystem(private val engine: PulseEngine) {
             x = x, y = y, count = 24, maxActive = MAX_PHYSICS_BURST_PARTICLES,
             layerMask = PHYSICS_LAYER_BURST_PARTICLE, collisionMask = PHYSICS_LAYER_WALL,
             restitution = 0.35f, friction = 0.08f, drag = 0.025f, density = 0.1f,
-            speedMin = 40f, speedMax = 180f, lifeMin = 0.5f, lifeMax = 1.0f,
-            sizeMin = 2.0f, sizeMax = 5.0f, red = 1f, green = 0.94f, blue = 0.68f,
+            speedMin = 20f, speedMax = 90f, lifeMin = 0.5f, lifeMax = 1.0f,
+            sizeMin = 1.0f, sizeMax = 2.5f, red = 1f, green = 0.94f, blue = 0.68f,
         )
         emitPhysicsTrail(
             x = x, y = y, count = 16, maxActive = MAX_PHYSICS_BURST_PARTICLES,
             layerMask = PHYSICS_LAYER_BURST_PARTICLE, collisionMask = PHYSICS_LAYER_WALL,
             restitution = 0.3f, friction = 0.06f, drag = 0.02f, density = 0.1f,
-            speedMin = 30f, speedMax = 130f, lifeMin = 0.5f, lifeMax = 1.0f,
-            sizeMin = 1.8f, sizeMax = 4.4f, red = 1f, green = 0.85f, blue = 0.5f,
+            speedMin = 15f, speedMax = 65f, lifeMin = 0.5f, lifeMax = 1.0f,
+            sizeMin = 0.9f, sizeMax = 2.2f, red = 1f, green = 0.85f, blue = 0.5f,
         )
         emitPhysicsTrail(
             x = x, y = y, count = 12, maxActive = MAX_PHYSICS_BURST_PARTICLES,
             layerMask = PHYSICS_LAYER_BURST_PARTICLE, collisionMask = PHYSICS_LAYER_WALL,
             restitution = 0.25f, friction = 0.04f, drag = 0.015f, density = 0.1f,
-            speedMin = 60f, speedMax = 200f, lifeMin = 0.3f, lifeMax = 0.7f,
-            sizeMin = 1.2f, sizeMax = 3.0f, red = 1f, green = 1f, blue = 0.95f,
+            speedMin = 30f, speedMax = 100f, lifeMin = 0.3f, lifeMax = 0.7f,
+            sizeMin = 0.6f, sizeMax = 1.5f, red = 1f, green = 1f, blue = 0.95f,
         )
         emitPhysicsTrail(
             x = x, y = y, count = 12, maxActive = MAX_PHYSICS_BURST_PARTICLES,
             layerMask = PHYSICS_LAYER_BURST_PARTICLE, collisionMask = PHYSICS_LAYER_WALL,
             restitution = 0.3f, friction = 0.06f, drag = 0.02f, density = 0.1f,
-            speedMin = 80f, speedMax = 220f, lifeMin = 0.3f, lifeMax = 0.7f,
-            sizeMin = 1.6f, sizeMax = 3.8f, red = 1f, green = 0.94f, blue = 0.68f,
+            speedMin = 40f, speedMax = 110f, lifeMin = 0.3f, lifeMax = 0.7f,
+            sizeMin = 0.8f, sizeMax = 1.9f, red = 1f, green = 0.94f, blue = 0.68f,
         )
     }
 
@@ -208,29 +208,29 @@ class ParticleSystem(private val engine: PulseEngine) {
             x = x, y = y, count = 56, maxActive = MAX_PHYSICS_BURST_PARTICLES,
             layerMask = PHYSICS_LAYER_BURST_PARTICLE, collisionMask = PHYSICS_LAYER_WALL,
             restitution = 0.35f, friction = 0.08f, drag = 0.025f, density = 0.1f,
-            speedMin = 48f, speedMax = 210f, lifeMin = 0.8f, lifeMax = 1.6f,
-            sizeMin = 2.6f, sizeMax = 7.2f, red = 1f, green = 0.98f, blue = 0.7f,
+            speedMin = 24f, speedMax = 105f, lifeMin = 0.8f, lifeMax = 1.6f,
+            sizeMin = 1.3f, sizeMax = 3.6f, red = 1f, green = 0.98f, blue = 0.7f,
         )
         emitPhysicsTrail(
             x = x, y = y, count = 40, maxActive = MAX_PHYSICS_BURST_PARTICLES,
             layerMask = PHYSICS_LAYER_BURST_PARTICLE, collisionMask = PHYSICS_LAYER_WALL,
             restitution = 0.3f, friction = 0.06f, drag = 0.02f, density = 0.1f,
-            speedMin = 30f, speedMax = 145f, lifeMin = 0.8f, lifeMax = 1.6f,
-            sizeMin = 2.4f, sizeMax = 6.4f, red = 1f, green = 0.85f, blue = 0.5f,
+            speedMin = 15f, speedMax = 72.5f, lifeMin = 0.8f, lifeMax = 1.6f,
+            sizeMin = 1.2f, sizeMax = 3.2f, red = 1f, green = 0.85f, blue = 0.5f,
         )
         emitPhysicsTrail(
             x = x, y = y, count = 28, maxActive = MAX_PHYSICS_BURST_PARTICLES,
             layerMask = PHYSICS_LAYER_BURST_PARTICLE, collisionMask = PHYSICS_LAYER_WALL,
             restitution = 0.25f, friction = 0.04f, drag = 0.015f, density = 0.1f,
-            speedMin = 80f, speedMax = 250f, lifeMin = 0.4f, lifeMax = 1.0f,
-            sizeMin = 1.4f, sizeMax = 3.8f, red = 1f, green = 1f, blue = 0.95f,
+            speedMin = 40f, speedMax = 125f, lifeMin = 0.4f, lifeMax = 1.0f,
+            sizeMin = 0.7f, sizeMax = 1.9f, red = 1f, green = 1f, blue = 0.95f,
         )
         emitPhysicsTrail(
             x = x, y = y, count = 20, maxActive = MAX_PHYSICS_BURST_PARTICLES,
             layerMask = PHYSICS_LAYER_BURST_PARTICLE, collisionMask = PHYSICS_LAYER_WALL,
             restitution = 0.3f, friction = 0.06f, drag = 0.02f, density = 0.1f,
-            speedMin = 120f, speedMax = 290f, lifeMin = 0.5f, lifeMax = 1.1f,
-            sizeMin = 2.2f, sizeMax = 4.8f, red = 1f, green = 0.98f, blue = 0.7f,
+            speedMin = 60f, speedMax = 145f, lifeMin = 0.5f, lifeMax = 1.1f,
+            sizeMin = 1.1f, sizeMax = 2.4f, red = 1f, green = 0.98f, blue = 0.7f,
         )
     }
 
@@ -238,13 +238,13 @@ class ParticleSystem(private val engine: PulseEngine) {
     fun emitPowerPelletHalo(x: Float, y: Float, time: Float) {
         val count = if (Random.nextFloat() > 0.5f) 2 else 1
         repeat(count) { i ->
-            val ringRadius = 14f + Random.nextFloat() * 4f
+            val ringRadius = 7f + Random.nextFloat() * 2f
             val ringAngle = (time * 2.5f + (i.toFloat() / count) * PI * 2f).toFloat()
             val px = x + cos(ringAngle) * ringRadius
             val py = y + sin(ringAngle) * ringRadius
-            val outwardSpeed = 4f + Random.nextFloat() * 8f
+            val outwardSpeed = 2f + Random.nextFloat() * 4f
             val life = 0.6f + Random.nextFloat() * 0.4f
-            val size = 1.2f + Random.nextFloat() * 1.2f
+            val size = 0.6f + Random.nextFloat() * 0.6f
             particles += Particle(
                 x = px,
                 y = py,
@@ -267,29 +267,29 @@ class ParticleSystem(private val engine: PulseEngine) {
             x = x, y = y, count = 56, maxActive = MAX_PHYSICS_BURST_PARTICLES,
             layerMask = PHYSICS_LAYER_BURST_PARTICLE, collisionMask = PHYSICS_LAYER_WALL,
             restitution = 0.35f, friction = 0.08f, drag = 0.025f, density = 0.1f,
-            speedMin = 48f, speedMax = 210f, lifeMin = 0.8f, lifeMax = 1.6f,
-            sizeMin = 2.6f, sizeMax = 7.2f, red = c.red, green = c.green, blue = c.blue,
+            speedMin = 24f, speedMax = 105f, lifeMin = 0.8f, lifeMax = 1.6f,
+            sizeMin = 1.3f, sizeMax = 3.6f, red = c.red, green = c.green, blue = c.blue,
         )
         emitPhysicsTrail(
             x = x, y = y, count = 40, maxActive = MAX_PHYSICS_BURST_PARTICLES,
             layerMask = PHYSICS_LAYER_BURST_PARTICLE, collisionMask = PHYSICS_LAYER_WALL,
             restitution = 0.3f, friction = 0.06f, drag = 0.02f, density = 0.1f,
-            speedMin = 30f, speedMax = 145f, lifeMin = 0.8f, lifeMax = 1.6f,
-            sizeMin = 2.4f, sizeMax = 6.4f, red = c.red * 0.7f, green = c.green * 0.7f, blue = c.blue * 0.7f,
+            speedMin = 15f, speedMax = 72.5f, lifeMin = 0.8f, lifeMax = 1.6f,
+            sizeMin = 1.2f, sizeMax = 3.2f, red = c.red * 0.7f, green = c.green * 0.7f, blue = c.blue * 0.7f,
         )
         emitPhysicsTrail(
             x = x, y = y, count = 28, maxActive = MAX_PHYSICS_BURST_PARTICLES,
             layerMask = PHYSICS_LAYER_BURST_PARTICLE, collisionMask = PHYSICS_LAYER_WALL,
             restitution = 0.25f, friction = 0.04f, drag = 0.015f, density = 0.1f,
-            speedMin = 80f, speedMax = 250f, lifeMin = 0.4f, lifeMax = 1.0f,
-            sizeMin = 1.4f, sizeMax = 3.8f, red = 1f, green = 1f, blue = 0.95f,
+            speedMin = 40f, speedMax = 125f, lifeMin = 0.4f, lifeMax = 1.0f,
+            sizeMin = 0.7f, sizeMax = 1.9f, red = 1f, green = 1f, blue = 0.95f,
         )
         emitPhysicsTrail(
             x = x, y = y, count = 20, maxActive = MAX_PHYSICS_BURST_PARTICLES,
             layerMask = PHYSICS_LAYER_BURST_PARTICLE, collisionMask = PHYSICS_LAYER_WALL,
             restitution = 0.3f, friction = 0.06f, drag = 0.02f, density = 0.1f,
-            speedMin = 120f, speedMax = 290f, lifeMin = 0.5f, lifeMax = 1.1f,
-            sizeMin = 2.2f, sizeMax = 4.8f, red = c.red, green = c.green, blue = c.blue,
+            speedMin = 60f, speedMax = 145f, lifeMin = 0.5f, lifeMax = 1.1f,
+            sizeMin = 1.1f, sizeMax = 2.4f, red = c.red, green = c.green, blue = c.blue,
         )
     }
 
@@ -308,9 +308,9 @@ class ParticleSystem(private val engine: PulseEngine) {
             layerMask = PHYSICS_LAYER_DEATH_PARTICLE,
             collisionMask = PHYSICS_LAYER_WALL,
             restitution = 0.35f, friction = 0.08f, drag = 0.025f, density = 0.1f,
-            speedMin = 48f, speedMax = 210f,
+            speedMin = 24f, speedMax = 105f,
             lifeMin = 0.8f, lifeMax = 1.6f,
-            sizeMin = 2.6f, sizeMax = 7.2f,
+            sizeMin = 1.3f, sizeMax = 3.6f,
             red = 1f, green = 0.9f, blue = 0.24f,
         )
         // Layer 2 — orange secondary
@@ -321,9 +321,9 @@ class ParticleSystem(private val engine: PulseEngine) {
             layerMask = PHYSICS_LAYER_DEATH_PARTICLE,
             collisionMask = PHYSICS_LAYER_WALL,
             restitution = 0.3f, friction = 0.06f, drag = 0.02f, density = 0.1f,
-            speedMin = 30f, speedMax = 145f,
+            speedMin = 15f, speedMax = 72.5f,
             lifeMin = 0.8f, lifeMax = 1.6f,
-            sizeMin = 2.4f, sizeMax = 6.4f,
+            sizeMin = 1.2f, sizeMax = 3.2f,
             red = 1f, green = 0.55f, blue = 0.12f,
         )
         // Layer 3 — white-hot sparks
@@ -334,9 +334,9 @@ class ParticleSystem(private val engine: PulseEngine) {
             layerMask = PHYSICS_LAYER_DEATH_PARTICLE,
             collisionMask = PHYSICS_LAYER_WALL,
             restitution = 0.25f, friction = 0.04f, drag = 0.015f, density = 0.1f,
-            speedMin = 80f, speedMax = 250f,
+            speedMin = 40f, speedMax = 125f,
             lifeMin = 0.4f, lifeMax = 1.0f,
-            sizeMin = 1.4f, sizeMax = 3.8f,
+            sizeMin = 0.7f, sizeMax = 1.9f,
             red = 1f, green = 1f, blue = 0.95f,
         )
         // Layer 4 — pale yellow shards
@@ -347,9 +347,9 @@ class ParticleSystem(private val engine: PulseEngine) {
             layerMask = PHYSICS_LAYER_DEATH_PARTICLE,
             collisionMask = PHYSICS_LAYER_WALL,
             restitution = 0.3f, friction = 0.06f, drag = 0.02f, density = 0.1f,
-            speedMin = 120f, speedMax = 290f,
+            speedMin = 60f, speedMax = 145f,
             lifeMin = 0.5f, lifeMax = 1.1f,
-            sizeMin = 2.2f, sizeMax = 4.8f,
+            sizeMin = 1.1f, sizeMax = 2.4f,
             red = 1f, green = 0.98f, blue = 0.7f,
         )
     }
@@ -410,29 +410,29 @@ class ParticleSystem(private val engine: PulseEngine) {
             x = x, y = y, count = 56, maxActive = MAX_PHYSICS_BURST_PARTICLES,
             layerMask = PHYSICS_LAYER_BURST_PARTICLE, collisionMask = PHYSICS_LAYER_WALL,
             restitution = 0.35f, friction = 0.08f, drag = 0.025f, density = 0.1f,
-            speedMin = 48f, speedMax = 210f, lifeMin = 0.8f, lifeMax = 1.6f,
-            sizeMin = 2.6f, sizeMax = 7.2f, red = c[0], green = c[1], blue = c[2],
+            speedMin = 24f, speedMax = 105f, lifeMin = 0.8f, lifeMax = 1.6f,
+            sizeMin = 1.3f, sizeMax = 3.6f, red = c[0], green = c[1], blue = c[2],
         )
         emitPhysicsTrail(
             x = x, y = y, count = 40, maxActive = MAX_PHYSICS_BURST_PARTICLES,
             layerMask = PHYSICS_LAYER_BURST_PARTICLE, collisionMask = PHYSICS_LAYER_WALL,
             restitution = 0.3f, friction = 0.06f, drag = 0.02f, density = 0.1f,
-            speedMin = 30f, speedMax = 145f, lifeMin = 0.8f, lifeMax = 1.6f,
-            sizeMin = 2.4f, sizeMax = 6.4f, red = c[0] * 0.7f, green = c[1] * 0.7f, blue = c[2] * 0.7f,
+            speedMin = 15f, speedMax = 72.5f, lifeMin = 0.8f, lifeMax = 1.6f,
+            sizeMin = 1.2f, sizeMax = 3.2f, red = c[0] * 0.7f, green = c[1] * 0.7f, blue = c[2] * 0.7f,
         )
         emitPhysicsTrail(
             x = x, y = y, count = 28, maxActive = MAX_PHYSICS_BURST_PARTICLES,
             layerMask = PHYSICS_LAYER_BURST_PARTICLE, collisionMask = PHYSICS_LAYER_WALL,
             restitution = 0.25f, friction = 0.04f, drag = 0.015f, density = 0.1f,
-            speedMin = 80f, speedMax = 250f, lifeMin = 0.4f, lifeMax = 1.0f,
-            sizeMin = 1.4f, sizeMax = 3.8f, red = 1f, green = 1f, blue = 0.95f,
+            speedMin = 40f, speedMax = 125f, lifeMin = 0.4f, lifeMax = 1.0f,
+            sizeMin = 0.7f, sizeMax = 1.9f, red = 1f, green = 1f, blue = 0.95f,
         )
         emitPhysicsTrail(
             x = x, y = y, count = 20, maxActive = MAX_PHYSICS_BURST_PARTICLES,
             layerMask = PHYSICS_LAYER_BURST_PARTICLE, collisionMask = PHYSICS_LAYER_WALL,
             restitution = 0.3f, friction = 0.06f, drag = 0.02f, density = 0.1f,
-            speedMin = 120f, speedMax = 290f, lifeMin = 0.5f, lifeMax = 1.1f,
-            sizeMin = 2.2f, sizeMax = 4.8f, red = c[0], green = c[1], blue = c[2],
+            speedMin = 60f, speedMax = 145f, lifeMin = 0.5f, lifeMax = 1.1f,
+            sizeMin = 1.1f, sizeMax = 2.4f, red = c[0], green = c[1], blue = c[2],
         )
     }
 
@@ -447,9 +447,9 @@ class ParticleSystem(private val engine: PulseEngine) {
             x = x,
             y = y,
             count = 2,
-            speedMin = 18f, speedMax = 55f,
+            speedMin = 9f, speedMax = 27.5f,
             lifeMin = 0.4f, lifeMax = 0.9f,
-            sizeMin = 1.2f, sizeMax = 2.6f,
+            sizeMin = 0.6f, sizeMax = 1.3f,
             red = 1f, green = 0.9f, blue = 0.1f,
         )
     }
@@ -467,9 +467,9 @@ class ParticleSystem(private val engine: PulseEngine) {
             x = x,
             y = y,
             count = count,
-            speedMin = 22f, speedMax = 60f,
+            speedMin = 11f, speedMax = 30f,
             lifeMin = 0.5f, lifeMax = 1.0f,
-            sizeMin = 1.6f, sizeMax = 3.6f,
+            sizeMin = 0.8f, sizeMax = 1.8f,
             red = 0.3f, green = 0.5f, blue = 1f,
         )
     }
@@ -519,12 +519,12 @@ class ParticleSystem(private val engine: PulseEngine) {
             x = x,
             y = y,
             count = count,
-            speedMin = 18f,
-            speedMax = 55f,
+            speedMin = 9f,
+            speedMax = 27.5f,
             lifeMin = 0.4f,
             lifeMax = 0.9f,
-            sizeMin = 1.2f,
-            sizeMax = 2.6f,
+            sizeMin = 0.6f,
+            sizeMax = 1.3f,
             red = color[0],
             green = color[1],
             blue = color[2],
@@ -549,9 +549,9 @@ class ParticleSystem(private val engine: PulseEngine) {
         emitBurst(
             x = rx, y = ry,
             count = 1,
-            speedMin = 2f, speedMax = 8f,
+            speedMin = 1f, speedMax = 4f,
             lifeMin = 1.5f, lifeMax = 3.0f,
-            sizeMin = 0.8f, sizeMax = 1.4f,
+            sizeMin = 0.4f, sizeMax = 0.7f,
             red = 0.6f, green = 0.6f, blue = 0.7f,
         )
     }
@@ -561,8 +561,8 @@ class ParticleSystem(private val engine: PulseEngine) {
         if (!levelWinConfettiEnabled) return
  
         for ((r, g, b) in CONFETTI_COLORS) {
-            emitBurst(x, y, count = 12, speedMin = 80f, speedMax = 260f,
-                lifeMin = 0.8f, lifeMax = 1.5f, sizeMin = 3f, sizeMax = 6f,
+            emitBurst(x, y, count = 12, speedMin = 40f, speedMax = 130f,
+                lifeMin = 0.8f, lifeMax = 1.5f, sizeMin = 1.5f, sizeMax = 3f,
                 red = r, green = g, blue = b)
         }
     }
@@ -578,12 +578,12 @@ class ParticleSystem(private val engine: PulseEngine) {
         while (confettiAccumulator >= emitInterval) {
             confettiAccumulator -= emitInterval
             val rx = mazeLeft + Random.nextFloat() * mazeWidth
-            val ry = Maze.OFFSET_Y + Random.nextFloat() * 40f
+            val ry = Maze.OFFSET_Y + Random.nextFloat() * 20f
             val (r, g, b) = CONFETTI_COLORS[Random.nextInt(CONFETTI_COLORS.size)]
             val angle = (PI * 0.25f + Random.nextFloat() * PI * 0.5f).toFloat()
-            val speed = 40f + Random.nextFloat() * 100f
+            val speed = 20f + Random.nextFloat() * 50f
             val life = 1.0f + Random.nextFloat() * 0.8f
-            val size = 2.5f + Random.nextFloat() * 4f
+            val size = 1.25f + Random.nextFloat() * 2f
             particles += Particle(
                 x = rx, y = ry,
                 vx = cos(angle) * speed * (if (Random.nextBoolean()) 1f else -1f),
@@ -633,7 +633,7 @@ class ParticleSystem(private val engine: PulseEngine) {
     companion object {
         private const val MAX_PARTICLES = 400
         private const val MAX_PHYSICS_TRAIL_PARTICLES = 260
-        private const val MAX_TRAIL_STEP_DELTA = 22f
+        private const val MAX_TRAIL_STEP_DELTA = 11f
         private const val MAX_PHYSICS_DEATH_PARTICLES = 420
         private const val MAX_PHYSICS_BURST_PARTICLES = 350
         private const val PHYSICS_LAYER_NONE = 0

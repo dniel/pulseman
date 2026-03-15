@@ -43,6 +43,7 @@ class PulseManGame : PulseEngineGame() {
 
      private var lives = 3
      private var level = 1
+     private var credits = 0
      var mazeMode = MazeMode.CLASSIC
 
     private var phase = GamePhase.READY
@@ -125,7 +126,12 @@ class PulseManGame : PulseEngineGame() {
      }
 
     override fun onUpdate() {
-        if (engine.input.wasClicked(Key.S)) {
+        if (engine.input.wasClicked(Key.K_5) || engine.input.wasClicked(Key.K_6)) {
+            credits++
+            soundManager.play("pulseman_extrapac")
+        }
+
+        if (engine.input.wasClicked(Key.F2)) {
             serviceMenu.toggle()
         }
 
@@ -134,27 +140,18 @@ class PulseManGame : PulseEngineGame() {
             return
         }
 
-        if (engine.input.wasClicked(Key.ENTER) && phase in setOf(GamePhase.BOOT, GamePhase.ATTRACT, GamePhase.ATTRACT_DEMO, GamePhase.TITLE_POINTS, GamePhase.HI_SCORE)) {
+        if (engine.input.wasClicked(Key.K_1) && credits > 0 && phase in setOf(GamePhase.BOOT, GamePhase.ATTRACT, GamePhase.ATTRACT_DEMO, GamePhase.TITLE_POINTS, GamePhase.HI_SCORE)) {
+            credits--
             startNewGameFromStartup()
             return
         }
 
-        if (engine.input.wasClicked(Key.UP) || engine.input.wasClicked(Key.W)) pulseMan.nextDir = Direction.UP
+        if (engine.input.wasClicked(Key.UP)) pulseMan.nextDir = Direction.UP
         if (engine.input.wasClicked(Key.DOWN)) pulseMan.nextDir = Direction.DOWN
-        if (engine.input.wasClicked(Key.LEFT) || engine.input.wasClicked(Key.A)) pulseMan.nextDir = Direction.LEFT
-         if (engine.input.wasClicked(Key.RIGHT) || engine.input.wasClicked(Key.D)) pulseMan.nextDir = Direction.RIGHT
-         if (engine.input.wasClicked(Key.R)) resetGame()
-        if (engine.input.wasClicked(Key.T)) {
-            if (bootTestHold) {
-                bootTestHold = false
-            } else {
-                phase = GamePhase.BOOT
-                bootTimer = bootDuration - 2.9f
-                bootTestHold = true
-                lighting.setLightingEnabledState(false)
-            }
-        }
-        if (engine.input.wasClicked(Key.ENTER) && phase == GamePhase.GAME_OVER) {
+        if (engine.input.wasClicked(Key.LEFT)) pulseMan.nextDir = Direction.LEFT
+        if (engine.input.wasClicked(Key.RIGHT)) pulseMan.nextDir = Direction.RIGHT
+        if (engine.input.wasClicked(Key.K_1) && credits > 0 && phase == GamePhase.GAME_OVER) {
+            credits--
             enterStartScreen()
         }
     }
@@ -617,10 +614,10 @@ class PulseManGame : PulseEngineGame() {
             val uiScale = min(engine.window.width / VIRTUAL_WIDTH, engine.window.height / VIRTUAL_HEIGHT)
             val uiMarginX = (engine.window.width - VIRTUAL_WIDTH * uiScale) / 2f
             val uiMarginY = (engine.window.height - VIRTUAL_HEIGHT * uiScale) / 2f
-            hudRenderer.renderUI(uiSurface, phase, level, lives, uiPulseTime, attractDemoGameOverTimer, engine.window.width, engine.window.height, uiScale, uiMarginX, uiMarginY)
+            hudRenderer.renderUI(uiSurface, phase, level, lives, credits, uiPulseTime, attractDemoGameOverTimer, engine.window.width, engine.window.height, uiScale, uiMarginX, uiMarginY)
         } else {
             uiSurface.setBackgroundColor(0f, 0f, 0f, 0f)
-            screenRenderer.renderStartupScreen(s, phase, bootTimer, bootDuration, attractTimer, uiPulseTime, VIRTUAL_WIDTH.toInt(), VIRTUAL_HEIGHT.toInt())
+            screenRenderer.renderStartupScreen(s, phase, bootTimer, bootDuration, attractTimer, uiPulseTime, VIRTUAL_WIDTH.toInt(), VIRTUAL_HEIGHT.toInt(), credits)
         }
         if (serviceMenu.isOpen) {
             val uiScale = min(engine.window.width / VIRTUAL_WIDTH, engine.window.height / VIRTUAL_HEIGHT)
@@ -831,7 +828,7 @@ class PulseManGame : PulseEngineGame() {
                           val ghostScore = 200 * (1 shl (ghostAI.pelletsEatenForGhostScore - 1).coerceAtMost(3))
                           scoreManager.addScore(ghostScore)
                           particleSystem.emitGhostEatenParticles(ghostAI.ghostPixelX(ghost), ghostAI.ghostPixelY(ghost), ghost.type)
-                          scoreManager.addPopup(ghostAI.ghostPixelX(ghost), ghostAI.ghostPixelY(ghost) - 8f, ghostScore.toString())
+                           scoreManager.addPopup(ghostAI.ghostPixelX(ghost), ghostAI.ghostPixelY(ghost) - 4f, ghostScore.toString())
                           soundManager.play("pulseman_eatghost")
                      }
 
@@ -859,8 +856,8 @@ class PulseManGame : PulseEngineGame() {
         private const val UI_SURFACE_NAME = "pulseman_ui"
         private const val SHAKE_EVENT_IMPULSE = 0.45f
 
-        private const val VIRTUAL_WIDTH = 800f
-        private const val VIRTUAL_HEIGHT = 800f
+        private const val VIRTUAL_WIDTH = 400f
+        private const val VIRTUAL_HEIGHT = 400f
     }
 }
 

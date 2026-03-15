@@ -20,6 +20,7 @@ class HUDRenderer(
         phase: GamePhase,
         level: Int,
         lives: Int,
+        credits: Int,
         uiPulseTime: Float,
         attractDemoGameOverTimer: Float,
         windowWidth: Int,
@@ -32,16 +33,16 @@ class HUDRenderer(
         val highScoreText = scoreManager.highScore.toString().padStart(6, '0')
 
         s.setDrawColor(0.95f, 0.95f, 0.95f, 1f)
-        s.drawText("1UP", marginX + 20f * scale, marginY + 15f * scale, fontSize = 20f)
-        s.drawText(scoreText, marginX + 20f * scale, marginY + 36f * scale, fontSize = 24f)
+        s.drawText("1UP", marginX + 10f * scale, marginY + 7.5f * scale, fontSize = 20f)
+        s.drawText(scoreText, marginX + 10f * scale, marginY + 18f * scale, fontSize = 24f)
 
-        s.drawText("HIGH SCORE", windowWidth / 2f, marginY + 15f * scale, fontSize = 20f, xOrigin = 0.5f)
-        s.drawText(highScoreText, windowWidth / 2f, marginY + 36f * scale, fontSize = 24f, xOrigin = 0.5f)
+        s.drawText("HIGH SCORE", windowWidth / 2f, marginY + 7.5f * scale, fontSize = 20f, xOrigin = 0.5f)
+        s.drawText(highScoreText, windowWidth / 2f, marginY + 18f * scale, fontSize = 24f, xOrigin = 0.5f)
 
-        s.drawText("LEVEL ${level.toString().padStart(2, '0')}", marginX + 640f * scale, marginY + 15f * scale, fontSize = 20f)
-        s.drawText("LIVES", marginX + 640f * scale, marginY + 36f * scale, fontSize = 16f)
+        s.drawText("LEVEL ${level.toString().padStart(2, '0')}", marginX + 320f * scale, marginY + 7.5f * scale, fontSize = 20f)
+        s.drawText("LIVES", marginX + 320f * scale, marginY + 18f * scale, fontSize = 16f)
         for (i in 0 until lives) {
-            drawLifeIcon(s, marginX + (702f + i * 24f) * scale, marginY + 45f * scale, 8f * scale)
+            drawLifeIcon(s, marginX + (351f + i * 12f) * scale, marginY + 22.5f * scale, 4f * scale)
         }
 
         val pulseAlpha = (0.65f + 0.35f * (0.5f + 0.5f * sin(uiPulseTime * 4f))).coerceIn(0.45f, 1f)
@@ -68,11 +69,12 @@ class HUDRenderer(
                     xOrigin = 0.5f,
                     yOrigin = 0.5f,
                 )
+                val continueText = if (credits > 0) "PUSH 1P START" else "INSERT COIN"
                 s.setDrawColor(1f, 1f, 1f, 0.7f)
                 s.drawText(
-                    "Press ENTER to restart",
+                    continueText,
                     windowWidth / 2f,
-                    marginY + (Maze.centerY(17) + 40f) * scale,
+                    marginY + (Maze.centerY(17) + 20f) * scale,
                     fontSize = 18f,
                     xOrigin = 0.5f,
                     yOrigin = 0.5f,
@@ -120,7 +122,7 @@ class HUDRenderer(
                     s.drawText(
                         "DEMO PLAY",
                         windowWidth / 2f,
-                        marginY + (Maze.centerY(17) + 34f) * scale,
+                        marginY + (Maze.centerY(17) + 17f) * scale,
                         fontSize = 16f,
                         xOrigin = 0.5f,
                         yOrigin = 0.5f,
@@ -131,11 +133,11 @@ class HUDRenderer(
             else -> {}
         }
 
-        s.setDrawColor(0.55f, 0.55f, 0.55f, 1f)
+        s.setDrawColor(0.9f, 0.9f, 0.2f, 1f)
         s.drawText(
-            "S: Service Menu",
+            "CREDIT  $credits",
             windowWidth / 2f,
-            windowHeight - 15f,
+            windowHeight - 7.5f,
             fontSize = 14f,
             xOrigin = 0.5f,
             yOrigin = 0.5f,

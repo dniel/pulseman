@@ -231,7 +231,7 @@ class PulseManController(
      * Updates the mouth opening/closing animation based on delta time.
      */
     fun updateMouthAnimation(dt: Float) {
-        val speed = 12.0f * gameSpeedScale
+        val speed = 6.0f * gameSpeedScale
         if (mouthOpening) {
             mouthAngle += speed * dt
             if (mouthAngle >= 1f) {

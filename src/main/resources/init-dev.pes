@@ -1,4 +1,4 @@
 // Development Initialization Script
-bind F2 showSceneEditor
-bind F3 showMetricViewer
-bind F4 showGpuMonitor
+bind F10 showSceneEditor
+bind F11 showMetricViewer
+bind F12 showGpuMonitor

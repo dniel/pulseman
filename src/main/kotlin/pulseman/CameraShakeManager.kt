@@ -19,8 +19,8 @@ class CameraShakeManager {
     fun update(dt: Float) {
         trauma = (trauma - dt * 1.15f).coerceAtLeast(0f)
         val shake = trauma * trauma * strength
-        offsetX = (Random.nextFloat() * 2f - 1f) * shake * 24f
-        offsetY = (Random.nextFloat() * 2f - 1f) * shake * 24f
+        offsetX = (Random.nextFloat() * 2f - 1f) * shake * 12f
+        offsetY = (Random.nextFloat() * 2f - 1f) * shake * 12f
     }
 
     fun apply(camera: Camera) {

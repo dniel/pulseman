@@ -119,16 +119,16 @@ class ServiceMenuManager(
         s.drawQuad(0f, 0f, windowWidth, windowHeight)
 
         val centerX = windowWidth / 2f
-        val titleY = marginY + 60f * scale
+        val titleY = marginY + 30f * scale
 
         s.setDrawColor(0f, 1f, 1f, 1f)
         s.drawText("SERVICE MENU", centerX, titleY, fontSize = 38f, xOrigin = 0.5f, yOrigin = 0.5f)
 
-        val startY = marginY + 100f * scale
-        val lineHeight = 18f
+        val startY = marginY + 50f * scale
+        val lineHeight = 9f * scale
         var yOffset = startY
-        val labelX = centerX - 200f
-        val valueX = centerX + 200f
+        val labelX = windowWidth * 0.15f
+        val valueX = windowWidth * 0.68f
 
         for (i in menuItems.indices) {
             val item = menuItems[i]
@@ -189,9 +189,9 @@ class ServiceMenuManager(
 
         s.setDrawColor(0.7f, 0.7f, 0.7f, 1f)
         s.drawText(
-            "UP/DOWN: Navigate   SPACE: Toggle   LEFT/RIGHT: Adjust   S: Close",
+            "UP/DOWN: Navigate   SPACE: Toggle   LEFT/RIGHT: Adjust   F2: Close",
             centerX,
-            windowHeight - 40f,
+            windowHeight - 20f,
             fontSize = 14f,
             xOrigin = 0.5f,
             yOrigin = 0.5f,

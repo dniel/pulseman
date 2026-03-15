@@ -40,7 +40,7 @@ fun drawGhostBody(s: Surface, cx: Float, cy: Float, size: Float) {
     val bumpRadius = size * 0.15f
     val baseY = bodyBottom - bumpRadius * 0.6f
     drawFilledCircle(s, cx - size * 0.3f, baseY, bumpRadius, 8)
-    drawFilledCircle(s, cx, baseY + 0.5f, bumpRadius, 8)
+    drawFilledCircle(s, cx, baseY + 0.25f, bumpRadius, 8)
     drawFilledCircle(s, cx + size * 0.3f, baseY, bumpRadius, 8)
 }
 
@@ -48,19 +48,19 @@ fun drawGhostBody(s: Surface, cx: Float, cy: Float, size: Float) {
  * Renders the white eyes and blue pupils of a ghost, offset based on its movement direction.
  */
 fun drawGhostEyes(s: Surface, cx: Float, cy: Float, dir: Direction, eyeScale: Float) {
-    val eyeOffset = 4.4f * eyeScale
-    val eyeRadius = 2.8f * eyeScale
-    val pupilRadius = 1.45f * eyeScale
-    val pdx = dir.dx * 1.4f
-    val pdy = dir.dy * 1.2f
+    val eyeOffset = 2.2f * eyeScale
+    val eyeRadius = 1.4f * eyeScale
+    val pupilRadius = 0.725f * eyeScale
+    val pdx = dir.dx * 0.7f
+    val pdy = dir.dy * 0.6f
 
     s.setDrawColor(1f, 1f, 1f, 1f)
-    drawFilledCircle(s, cx - eyeOffset, cy - 2f, eyeRadius, 10)
-    drawFilledCircle(s, cx + eyeOffset, cy - 2f, eyeRadius, 10)
+    drawFilledCircle(s, cx - eyeOffset, cy - 1f, eyeRadius, 10)
+    drawFilledCircle(s, cx + eyeOffset, cy - 1f, eyeRadius, 10)
 
     s.setDrawColor(0.07f, 0.07f, 0.35f, 1f)
-    drawFilledCircle(s, cx - eyeOffset + pdx, cy - 2f + pdy, pupilRadius, 8)
-    drawFilledCircle(s, cx + eyeOffset + pdx, cy - 2f + pdy, pupilRadius, 8)
+    drawFilledCircle(s, cx - eyeOffset + pdx, cy - 1f + pdy, pupilRadius, 8)
+    drawFilledCircle(s, cx + eyeOffset + pdx, cy - 1f + pdy, pupilRadius, 8)
 }
 
 /**
@@ -68,13 +68,13 @@ fun drawGhostEyes(s: Surface, cx: Float, cy: Float, dir: Direction, eyeScale: Fl
  */
 fun drawFrightenedFace(s: Surface, cx: Float, cy: Float) {
     s.setDrawColor(1f, 1f, 1f, 1f)
-    drawFilledCircle(s, cx - 4f, cy - 2f, 1.8f, 6)
-    drawFilledCircle(s, cx + 4f, cy - 2f, 1.8f, 6)
-    val y = cy + 4f
-    s.drawLine(cx - 6f, y, cx - 3f, y - 1f)
-    s.drawLine(cx - 3f, y - 1f, cx, y)
-    s.drawLine(cx, y, cx + 3f, y - 1f)
-    s.drawLine(cx + 3f, y - 1f, cx + 6f, y)
+    drawFilledCircle(s, cx - 2f, cy - 1f, 0.9f, 6)
+    drawFilledCircle(s, cx + 2f, cy - 1f, 0.9f, 6)
+    val y = cy + 2f
+    s.drawLine(cx - 3f, y, cx - 1.5f, y - 0.5f)
+    s.drawLine(cx - 1.5f, y - 0.5f, cx, y)
+    s.drawLine(cx, y, cx + 1.5f, y - 0.5f)
+    s.drawLine(cx + 1.5f, y - 0.5f, cx + 3f, y)
 }
 
 /**
@@ -93,15 +93,15 @@ fun drawGlowText(
     yOrigin: Float = 0f,
 ) {
     s.setDrawColor(red, green, blue, 0.16f)
+    s.drawText(text, x - 1.5f, y, fontSize = fontSize, xOrigin = xOrigin, yOrigin = yOrigin)
+    s.drawText(text, x + 1.5f, y, fontSize = fontSize, xOrigin = xOrigin, yOrigin = yOrigin)
+    s.drawText(text, x, y - 1.5f, fontSize = fontSize, xOrigin = xOrigin, yOrigin = yOrigin)
+    s.drawText(text, x, y + 1.5f, fontSize = fontSize, xOrigin = xOrigin, yOrigin = yOrigin)
+    s.setDrawColor(red, green, blue, 0.1f)
     s.drawText(text, x - 3f, y, fontSize = fontSize, xOrigin = xOrigin, yOrigin = yOrigin)
     s.drawText(text, x + 3f, y, fontSize = fontSize, xOrigin = xOrigin, yOrigin = yOrigin)
     s.drawText(text, x, y - 3f, fontSize = fontSize, xOrigin = xOrigin, yOrigin = yOrigin)
     s.drawText(text, x, y + 3f, fontSize = fontSize, xOrigin = xOrigin, yOrigin = yOrigin)
-    s.setDrawColor(red, green, blue, 0.1f)
-    s.drawText(text, x - 6f, y, fontSize = fontSize, xOrigin = xOrigin, yOrigin = yOrigin)
-    s.drawText(text, x + 6f, y, fontSize = fontSize, xOrigin = xOrigin, yOrigin = yOrigin)
-    s.drawText(text, x, y - 6f, fontSize = fontSize, xOrigin = xOrigin, yOrigin = yOrigin)
-    s.drawText(text, x, y + 6f, fontSize = fontSize, xOrigin = xOrigin, yOrigin = yOrigin)
 }
 
 /**
@@ -109,13 +109,13 @@ fun drawGlowText(
  * Used when direct circle rendering is not available or suitable.
  */
 fun drawFilledCircle(s: Surface, cx: Float, cy: Float, radius: Float, segments: Int = 20) {
-    if (radius <= 0.5f) return
+    if (radius <= 0.25f) return
     val step = (radius * 2f) / segments
     for (i in 0..segments) {
         val y = cy - radius + i * step
         val dy = y - cy
         val halfWidth = sqrt((radius * radius - dy * dy).coerceAtLeast(0f))
-        s.drawQuad(cx - halfWidth, y, halfWidth * 2f, step + 0.3f)
+        s.drawQuad(cx - halfWidth, y, halfWidth * 2f, step + 0.15f)
     }
 }
 
@@ -134,7 +134,7 @@ fun drawPulseManMouthCutout(s: Surface, cx: Float, cy: Float, radius: Float, dir
             for (i in 0..samples) {
                 val dx = i * step
                 val h = maxHalf * (dx / radius)
-                s.drawQuad(cx + dx, cy - h, step + 0.8f, h * 2f + 0.8f)
+                s.drawQuad(cx + dx, cy - h, step + 0.4f, h * 2f + 0.4f)
             }
         }
 
@@ -142,7 +142,7 @@ fun drawPulseManMouthCutout(s: Surface, cx: Float, cy: Float, radius: Float, dir
             for (i in 0..samples) {
                 val dx = i * step
                 val h = maxHalf * (dx / radius)
-                s.drawQuad(cx - dx - step, cy - h, step + 0.8f, h * 2f + 0.8f)
+                s.drawQuad(cx - dx - step, cy - h, step + 0.4f, h * 2f + 0.4f)
             }
         }
 
@@ -150,7 +150,7 @@ fun drawPulseManMouthCutout(s: Surface, cx: Float, cy: Float, radius: Float, dir
             for (i in 0..samples) {
                 val dy = i * step
                 val w = maxHalf * (dy / radius)
-                s.drawQuad(cx - w, cy - dy - step, w * 2f + 0.8f, step + 0.8f)
+                s.drawQuad(cx - w, cy - dy - step, w * 2f + 0.4f, step + 0.4f)
             }
         }
 
@@ -158,7 +158,7 @@ fun drawPulseManMouthCutout(s: Surface, cx: Float, cy: Float, radius: Float, dir
             for (i in 0..samples) {
                 val dy = i * step
                 val w = maxHalf * (dy / radius)
-                s.drawQuad(cx - w, cy + dy, w * 2f + 0.8f, step + 0.8f)
+                s.drawQuad(cx - w, cy + dy, w * 2f + 0.4f, step + 0.4f)
             }
         }
 

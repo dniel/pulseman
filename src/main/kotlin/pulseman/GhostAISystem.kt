@@ -36,7 +36,7 @@ class GhostAISystem(
     var pelletsEatenForGhostScore = 0
     var dotsRemaining: Int = Int.MAX_VALUE
 
-    private val maxSpeed = LevelProgression.MAX_SPEED * gameSpeedScale
+    private val maxSpeed = LevelProgression.MAX_SPEED * gameSpeedScale * 0.5f
     private var ghostModeTimer = 0f
     private var ghostModeIndex = 0
     private var currentGhostMode = GhostMode.SCATTER
@@ -50,7 +50,7 @@ class GhostAISystem(
     private val cachedEatenDir = arrayOfNulls<Direction>(4)
     private val cachedEatenFrom = Array(4) { intArrayOf(-1, -1) }
 
-    private val eatenGhostSpeed = 12f * gameSpeedScale
+    private val eatenGhostSpeed = 6f * gameSpeedScale
 
     /**
      * Scatter/chase wave sequence for the current level, loaded from [LevelProgression.SCATTER_CHASE_PATTERNS].

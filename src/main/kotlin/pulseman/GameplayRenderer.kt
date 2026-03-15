@@ -24,7 +24,7 @@ class GameplayRenderer(
      */
     fun renderMaze(s: Surface, uiPulseTime: Float) {
         val wallColor = Maze.currentLayout.wallColor
-        val thickness = if (wallThinOutlineMode) 1f else 3f
+        val thickness = if (wallThinOutlineMode) 0.5f else 1.5f
         val wallBase = when {
             !wallBevelEnabled -> wallColor
             wallBevelDebug -> floatArrayOf(0.1f, 0.2f, 0.4f)
@@ -64,23 +64,23 @@ class GameplayRenderer(
 
                     Maze.DOT -> {
                         s.setDrawColor(1f, 0.95f, 0.78f, 0.18f + pelletPulse * 0.16f)
-                        drawFilledCircle(s, Maze.centerX(col), Maze.centerY(row), 4.8f, 12)
+                        drawFilledCircle(s, Maze.centerX(col), Maze.centerY(row), 2.4f, 12)
                         s.setDrawColor(1f, 0.93f, 0.75f, 1f)
-                        drawFilledCircle(s, Maze.centerX(col), Maze.centerY(row), 2.1f, 8)
+                        drawFilledCircle(s, Maze.centerX(col), Maze.centerY(row), 1.05f, 8)
                     }
 
                     Maze.POWER -> {
                         val cx = Maze.centerX(col)
                         val cy = Maze.centerY(row)
                         s.setDrawColor(1f, 0.98f, 0.86f, 0.28f + pelletPulse * 0.22f)
-                        drawFilledCircle(s, cx, cy, 8.8f, 14)
+                        drawFilledCircle(s, cx, cy, 4.4f, 14)
                         s.setDrawColor(1f, 1f, 1f, 1f)
-                        drawFilledCircle(s, cx, cy, 5f, 14)
+                        drawFilledCircle(s, cx, cy, 2.5f, 14)
                     }
 
                     Maze.GHOST_DOOR -> {
                         s.setDrawColor(1f, 0.7f, 0.8f, 1f)
-                        s.drawQuad(x, y + Maze.TILE / 2f - 2f, Maze.TILE.toFloat(), 4f)
+                        s.drawQuad(x, y + Maze.TILE / 2f - 1f, Maze.TILE.toFloat(), 2f)
                     }
                 }
             }
@@ -126,7 +126,7 @@ class GameplayRenderer(
     fun renderPulseMan(s: Surface, phase: GamePhase, deathAnimTimer: Float) {
         val px = pulseMan.pixelX()
         val py = pulseMan.pixelY()
-        val radius = (Maze.TILE - 4f) * 0.5f
+        val radius = (Maze.TILE - 2f) * 0.5f
 
         if (phase == GamePhase.DYING) {
             val life = (deathAnimTimer / 1.5f).coerceIn(0f, 1f)
@@ -153,10 +153,10 @@ class GameplayRenderer(
         for (ghost in ghostAI.ghosts) {
             val gx = if (!ghost.released && ghost.mode != GhostMode.EATEN) Maze.centerX(ghost.gridX) else ghostAI.ghostPixelX(ghost)
             val gy = if (!ghost.released && ghost.mode != GhostMode.EATEN) Maze.centerY(ghost.gridY) else ghostAI.ghostPixelY(ghost)
-            val size = Maze.TILE - 4f
+            val size = Maze.TILE - 2f
 
             if (ghost.mode == GhostMode.EATEN) {
-                drawGhostEyes(s, gx, gy - 1f, ghost.direction, eyeScale = 1.15f)
+                drawGhostEyes(s, gx, gy - 0.5f, ghost.direction, eyeScale = 1.15f)
                 continue
             }
 
@@ -166,7 +166,7 @@ class GameplayRenderer(
             if (ghost.mode == GhostMode.FRIGHTENED) {
                 drawFrightenedFace(s, gx, gy)
             } else {
-                drawGhostEyes(s, gx, gy - 1f, ghost.direction, eyeScale = 1f)
+                drawGhostEyes(s, gx, gy - 0.5f, ghost.direction, eyeScale = 1f)
             }
         }
     }
@@ -182,49 +182,49 @@ class GameplayRenderer(
         when (fruit.type) {
             FruitType.CHERRY -> {
                 s.setDrawColor(0.95f, 0.12f, 0.15f, 1f)
-                drawFilledCircle(s, cx - 2.3f, cy + 1f, 4f, 10)
-                drawFilledCircle(s, cx + 2.3f, cy - 0.3f, 4f, 10)
+                drawFilledCircle(s, cx - 1.15f, cy + 0.5f, 2f, 10)
+                drawFilledCircle(s, cx + 1.15f, cy - 0.15f, 2f, 10)
                 s.setDrawColor(0.2f, 0.9f, 0.3f, 1f)
-                s.drawQuad(cx - 0.8f, cy - 7f, 1.6f, 4.5f)
+                s.drawQuad(cx - 0.4f, cy - 3.5f, 0.8f, 2.25f)
             }
 
             FruitType.STRAWBERRY -> {
                 s.setDrawColor(0.95f, 0.15f, 0.16f, 1f)
-                s.drawQuad(cx - 5f, cy - 2f, 10f, 8f)
+                s.drawQuad(cx - 2.5f, cy - 1f, 5f, 4f)
                 s.setDrawColor(0.1f, 0.8f, 0.22f, 1f)
-                s.drawQuad(cx - 4f, cy - 6f, 8f, 3f)
+                s.drawQuad(cx - 2f, cy - 3f, 4f, 1.5f)
             }
 
             FruitType.ORANGE -> {
                 s.setDrawColor(1f, 0.55f, 0.1f, 1f)
-                drawFilledCircle(s, cx, cy, 5f, 12)
+                drawFilledCircle(s, cx, cy, 2.5f, 12)
             }
 
             FruitType.APPLE -> {
                 s.setDrawColor(0.9f, 0.12f, 0.16f, 1f)
-                drawFilledCircle(s, cx, cy, 5f, 12)
+                drawFilledCircle(s, cx, cy, 2.5f, 12)
                 s.setDrawColor(0.22f, 0.95f, 0.3f, 1f)
-                drawFilledCircle(s, cx + 2f, cy - 5.5f, 1.6f, 6)
+                drawFilledCircle(s, cx + 1f, cy - 2.75f, 0.8f, 6)
             }
 
             FruitType.MELON -> {
                 s.setDrawColor(0.28f, 0.86f, 0.45f, 1f)
-                drawFilledCircle(s, cx, cy, 5f, 12)
+                drawFilledCircle(s, cx, cy, 2.5f, 12)
             }
 
             FruitType.GALAXIAN -> {
                 s.setDrawColor(0.95f, 0.95f, 0.22f, 1f)
-                drawFilledCircle(s, cx, cy, 5f, 12)
+                drawFilledCircle(s, cx, cy, 2.5f, 12)
             }
 
             FruitType.BELL -> {
                 s.setDrawColor(1f, 0.85f, 0.2f, 1f)
-                drawFilledCircle(s, cx, cy, 5f, 12)
+                drawFilledCircle(s, cx, cy, 2.5f, 12)
             }
 
             FruitType.KEY -> {
                 s.setDrawColor(0.98f, 0.92f, 0.45f, 1f)
-                drawFilledCircle(s, cx, cy, 5f, 12)
+                drawFilledCircle(s, cx, cy, 2.5f, 12)
             }
         }
     }
@@ -253,10 +253,10 @@ class GameplayRenderer(
         s.drawLine(left, centerY, right, centerY)
 
         s.setDrawColor(0.35f, 0.75f, 1f, 0.85f)
-        val sx0 = 20f
-        val sy0 = 20f
-        val sx1 = windowWidth - 20f
-        val sy1 = windowHeight - 20f
+        val sx0 = 10f
+        val sy0 = 10f
+        val sx1 = windowWidth - 10f
+        val sy1 = windowHeight - 10f
         s.drawLine(sx0, sy0, sx1, sy0)
         s.drawLine(sx0, sy1, sx1, sy1)
         s.drawLine(sx0, sy0, sx0, sy1)
